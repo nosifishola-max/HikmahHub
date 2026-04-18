@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BottomNav } from './BottomNav';
 import { Header } from './Header';
+import { Footer } from './Footer';
 import { useAuth } from '@/hooks';
 
 interface LayoutProps {
@@ -23,17 +24,23 @@ export function Layout({ children, hideNav = false, hideHeader = false }: Layout
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const showBottomNav = !hideNav && isAuthenticated && isMobile;
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       {!hideHeader && <Header />}
       
-      <main className={`${!hideHeader ? 'pt-16' : ''} ${!hideNav && isAuthenticated && isMobile ? 'pb-20' : ''}`}>
+      <main className={`flex-grow ${!hideHeader ? 'pt-16' : ''}`}>
         <div className="max-w-7xl mx-auto">
           {children}
         </div>
       </main>
 
-      {!hideNav && isAuthenticated && isMobile && <BottomNav />}
+      <div className={showBottomNav ? 'pb-16' : ''}>
+        <Footer />
+      </div>
+
+      {showBottomNav && <BottomNav />}
     </div>
   );
 }

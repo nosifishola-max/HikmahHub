@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.3",
+    "axios": "^1.15.0",
+    "react-paystack": "^6.0.0"
+  },
+  "devDependencies": {
+    "vite": "^8.0.8"
+  }
+}
