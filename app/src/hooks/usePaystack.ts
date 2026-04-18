@@ -198,7 +198,7 @@ export function usePaystack() {
     payForVendorVerification,
   };
 }
-      metadata: { type: 'vendor_verification' },
+      metadata: { type: 'vendor_verification' h},
       onSuccess,
       onCancel,
     });
