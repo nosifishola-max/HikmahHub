@@ -41,6 +41,12 @@ export function Profile() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Handle authentication redirect
+    if (!isAuthenticated && !id) {
+      navigate('/login');
+      return;
+    }
+
     if (id) {
       // Viewing another user's profile
       loadUserProfile(id);
@@ -50,7 +56,7 @@ export function Profile() {
       setIsOwnProfile(true);
       loadUserData(currentUser.id);
     }
-  }, [id, currentUser]);
+  }, [id, currentUser, isAuthenticated, navigate]);
 
   const loadUserProfile = async (userId: string) => {
     try {
@@ -105,11 +111,6 @@ export function Profile() {
       setTimeout(() => setReferralCopied(false), 2000);
     }
   };
-
-  if (!isAuthenticated && !id) {
-    navigate('/login');
-    return null;
-  }
 
   if (error) {
     return (
