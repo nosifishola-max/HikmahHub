@@ -9,8 +9,6 @@ export function useNotifications() {
 
   // Subscribe to realtime notifications
   useEffect(() => {
-    if (!supabase) return; // Skip if no supabase client
-
     const subscription = supabase
       .channel('notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
@@ -28,13 +26,6 @@ export function useNotifications() {
   }, []);
 
   const getNotifications = useCallback(async () => {
-    if (!supabase) {
-      // Mock notifications for development
-      setNotifications([]);
-      setUnreadCount(0);
-      return { data: [], error: null };
-    }
-
     setLoading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -62,12 +53,6 @@ export function useNotifications() {
   }, []);
 
   const markAsRead = useCallback(async (notificationId?: string) => {
-    if (!supabase) {
-      // Mock mark as read for development
-      console.log('Mock mark as read:', notificationId);
-      return;
-    }
-
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
@@ -95,13 +80,6 @@ export function useNotifications() {
   }, [getNotifications]);
 
   const deleteNotification = useCallback(async (notificationId: string) => {
-    if (!supabase) {
-      // Mock delete for development
-      console.log('Mock delete notification:', notificationId);
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      return;
-    }
-
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;

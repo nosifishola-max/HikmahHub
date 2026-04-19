@@ -137,7 +137,7 @@ export function CreateListing() {
   const handlePayment = async () => {
     setLoading(true);
     
-    const { error } = await payForListing({
+    const result = await payForListing({
       email: user!.email,
       isFirstListing: false,
       onSuccess: () => {
@@ -149,7 +149,7 @@ export function CreateListing() {
       },
     });
 
-    if (error) {
+    if (!result.success) {
       setError('Payment failed. Please try again.');
       setLoading(false);
     }

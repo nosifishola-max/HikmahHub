@@ -8,12 +8,6 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Skip auth initialization if supabase is not available (placeholder mode)
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -39,11 +33,6 @@ export function useAuth() {
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-
     try {
       const { data, error } = await supabase
         .from('users')
@@ -61,12 +50,6 @@ export function useAuth() {
   };
 
   const signUp = useCallback(async (email: string, password: string, name: string, referralCode?: string) => {
-    if (!supabase) {
-      // Mock signup for development
-      console.log('Mock signup:', { email, name, referralCode });
-      return { data: { user: { id: 'mock-user-id', email, user_metadata: { name } } }, error: null };
-    }
-
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -101,12 +84,6 @@ export function useAuth() {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    if (!supabase) {
-      // Mock signin for development
-      console.log('Mock signin:', { email });
-      return { data: { user: { id: 'mock-user-id', email } }, error: null };
-    }
-
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -121,13 +98,6 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
-    if (!supabase) {
-      // Mock signout for development
-      setUser(null);
-      setSession(null);
-      return { error: null };
-    }
-
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -139,12 +109,6 @@ export function useAuth() {
   }, []);
 
   const updateProfile = useCallback(async (updates: Partial<User>) => {
-    if (!supabase) {
-      // Mock profile update for development
-      console.log('Mock profile update:', updates);
-      return { data: { ...user, ...updates } as User, error: null };
-    }
-
     if (!user) return { error: new Error('Not authenticated') };
 
     try {
@@ -164,11 +128,6 @@ export function useAuth() {
   }, [user]);
 
   const refreshUser = useCallback(async () => {
-    if (!supabase) {
-      // Mock refresh for development
-      return;
-    }
-
     if (session?.user) {
       await fetchUserProfile(session.user.id);
     }

@@ -15,25 +15,6 @@ export function useVendors() {
     category?: string;
     verified?: boolean;
   }) => {
-    if (!supabase) {
-      // Mock vendors for development
-      const mockVendors: VendorWithUser[] = [
-        {
-          id: '1',
-          business_name: 'Sample Vendor',
-          category: 'Electronics',
-          business_logo: null,
-          user_id: 'mock-user',
-          is_verified: true,
-          is_featured: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-      ];
-      setVendors(mockVendors);
-      return { data: mockVendors, error: null };
-    }
-
     setLoading(true);
     try {
       let query = supabase

@@ -6,11 +6,6 @@ export function useWallet() {
   const [loading, setLoading] = useState(false);
 
   const getTransactions = useCallback(async () => {
-    if (!supabase) {
-      // Mock transactions for development
-      return { data: [], error: null };
-    }
-
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Not authenticated');
@@ -39,13 +34,6 @@ export function useWallet() {
     reference: string;
     metadata?: Record<string, any>;
   }) => {
-    if (!supabase) {
-      // Mock payment processing for development
-      console.log('Mock payment processed:', { amount, type, reference, metadata });
-      setLoading(false);
-      return { success: true, error: null };
-    }
-
     setLoading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();

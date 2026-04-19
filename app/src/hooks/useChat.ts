@@ -20,8 +20,6 @@ export function useChat() {
 
   // Subscribe to realtime messages
   useEffect(() => {
-    if (!supabase) return; // Skip if no supabase client
-
     const subscription = supabase
       .channel('messages')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
@@ -38,12 +36,6 @@ export function useChat() {
   }, []);
 
   const getChats = useCallback(async () => {
-    if (!supabase) {
-      // Mock chats for development
-      setChats([]);
-      return { data: [], error: null };
-    }
-
     setLoading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();

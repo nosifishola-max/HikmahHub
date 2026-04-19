@@ -109,7 +109,7 @@ export function usePaystack() {
     const result = await initializePayment({
       email,
       amount,
-      type: 'listing_fee',
+      metadata: { type: 'listing_fee' },
     });
 
     if (result.success && result.data) {
@@ -144,8 +144,7 @@ export function usePaystack() {
     const result = await initializePayment({
       email,
       amount,
-      type: 'boost',
-      boostType,
+      metadata: { type: 'boost', boostType },
     });
 
     if (result.success && result.data) {
@@ -173,7 +172,35 @@ export function usePaystack() {
     const result = await initializePayment({
       email,
       amount: PRICING.VENDOR.VERIFICATION,
-      type: 'vendor_verification',
+      metadata: { type: 'vendor_verification' },
+    });
+
+    if (result.success && result.data) {
+      window.open(result.data.authorization_url, '_blank');
+
+      setTimeout(() => {
+        onSuccess?.(result.data!.reference);
+      }, 2000);
+    } else {
+      onCancel?.();
+    }
+
+    return result;
+  }, [initializePayment]);
+
+  const payForFeaturedVendor = useCallback(async ({
+    email,
+    onSuccess,
+    onCancel,
+  }: {
+    email: string;
+    onSuccess?: (reference: string) => void;
+    onCancel?: () => void;
+  }) => {
+    const result = await initializePayment({
+      email,
+      amount: PRICING.VENDOR.FEATURED,
+      metadata: { type: 'vendor_featured' },
     });
 
     if (result.success && result.data) {
@@ -193,38 +220,6 @@ export function usePaystack() {
     loading,
     initializePayment,
     verifyPayment,
-    payForListing,
-    payForBoost,
-    payForVendorVerification,
-  };
-}
-      metadata: { type: 'vendor_verification' h},
-      onSuccess,
-      onCancel,
-    });
-  }, [initializePayment]);
-
-  const payForFeaturedVendor = useCallback(async ({
-    email,
-    onSuccess,
-    onCancel,
-  }: {
-    email: string;
-    onSuccess?: (reference: string) => void;
-    onCancel?: () => void;
-  }) => {
-    return initializePayment({
-      email,
-      amount: PRICING.VENDOR.FEATURED,
-      metadata: { type: 'vendor_featured' },
-      onSuccess,
-      onCancel,
-    });
-  }, [initializePayment]);
-
-  return {
-    loading,
-    initializePayment,
     payForListing,
     payForBoost,
     payForVendorVerification,

@@ -1,21 +1,16 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
-// Check if we have valid credentials (not placeholders)
-const hasValidCredentials = supabaseUrl && supabaseAnonKey &&
-  !supabaseUrl.includes('placeholder') && !supabaseAnonKey.includes('placeholder');
-
-export const supabase = hasValidCredentials
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-      },
-    })
-  : null; // No real client when using placeholders
+// Always create a client - will work with real credentials or placeholder mode
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});
 
 // Paystack configuration - moved to backend for security
 // export const PAYSTACK_PUBLIC_KEY = 'sk_live_e3ee464203dbad85006f3d0869e21b2bff1c6697';

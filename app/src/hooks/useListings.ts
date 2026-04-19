@@ -17,23 +17,30 @@ export function useListings() {
     userId?: string;
     boosted?: boolean;
   }) => {
+    // Mock listings for development (always available)
+    const mockListings: ListingWithUser[] = [
+      {
+        id: '1',
+        title: 'Sample Laptop',
+        description: 'A great laptop for students',
+        price: 150000,
+        category: 'electronics',
+        condition: 'like_new',
+        images: [],
+        user_id: 'mock-user',
+        status: 'active',
+        is_boosted: false,
+        boost_type: null,
+        boost_expires_at: null,
+        listing_fee_paid: true,
+        listing_fee_amount: 200,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+    ];
+
+    // If we're in placeholder mode, return mock data
     if (!supabase) {
-      // Mock listings for development
-      const mockListings: ListingWithUser[] = [
-        {
-          id: '1',
-          title: 'Sample Laptop',
-          description: 'A great laptop for students',
-          price: 150000,
-          category: 'Electronics',
-          images: [],
-          user_id: 'mock-user',
-          status: 'active',
-          is_boosted: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-      ];
       setListings(mockListings);
       return { data: mockListings, error: null };
     }
