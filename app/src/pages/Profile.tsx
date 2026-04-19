@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Layout } from '@/components/Layout';
 import { useAuth, useListings, useVendors } from '@/hooks';
 import { formatCurrency, generateReferralLink } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type { ListingWithUser } from '@/hooks/useListings';
 
 export function Profile() {
@@ -36,6 +37,8 @@ export function Profile() {
   const [vendorProfile, setVendorProfile] = useState<any>(null);
   const [referralCopied, setReferralCopied] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(!id);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -50,28 +53,48 @@ export function Profile() {
   }, [id, currentUser]);
 
   const loadUserProfile = async (userId: string) => {
-    // Fetch user profile from Supabase
-    const { data } = await fetch(`/rest/v1/users?id=eq.${userId}&select=*`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`,
-      },
-    }).then(res => res.json());
-    
-    if (data && data[0]) {
-      setUser(data[0]);
-      setIsOwnProfile(currentUser?.id === userId);
-      loadUserData(userId);
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Use Supabase client to fetch user profile
+      const { data, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching user profile:', fetchError);
+        setError('Failed to load user profile');
+        return;
+      }
+      
+      if (data) {
+        setUser(data as any);
+        setIsOwnProfile(currentUser?.id === userId);
+        await loadUserData(userId);
+      }
+    } catch (err: any) {
+      console.error('Error in loadUserProfile:', err);
+      setError(err.message || 'Failed to load profile');
+    } finally {
+      setLoading(false);
     }
   };
 
   const loadUserData = async (userId: string) => {
-    // Load user's listings
-    const result: any = await fetchListings({ userId });
-    setUserListings(result.data || []);
+    try {
+      // Load user's listings
+      const result: any = await fetchListings({ userId });
+      setUserListings(result.data || []);
 
-    // Load vendor profile if applicable
-    const { data: vendorData } = await getVendorByUserId(userId);
-    setVendorProfile(vendorData);
+      // Load vendor profile if applicable
+      const { data: vendorData } = await getVendorByUserId(userId);
+      setVendorProfile(vendorData);
+    } catch (err) {
+      console.error('Error loading user data:', err);
+    }
   };
 
   const copyReferralCode = () => {
@@ -88,11 +111,23 @@ export function Profile() {
     return null;
   }
 
-  if (!user) {
+  if (error) {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 py-8 text-center">
-          <p>Loading profile...</p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+            <p className="font-medium">{error}</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (loading || !user) {
+    return (
+      <Layout>
+        <div className="max-w-7xl mx-auto px-4 py-8 text-center">
+          <p className="text-gray-500">Loading profile...</p>
         </div>
       </Layout>
     );
