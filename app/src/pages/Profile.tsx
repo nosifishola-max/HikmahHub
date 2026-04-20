@@ -28,7 +28,7 @@ import type { ListingWithUser } from '@/hooks/useListings';
 export function Profile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user: currentUser, isAuthenticated } = useAuth();
+  const { user: currentUser, isAuthenticated, loading: authLoading } = useAuth();
   const { fetchListings } = useListings();
   const { getVendorByUserId } = useVendors();
   
@@ -41,6 +41,8 @@ export function Profile() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+
     // Handle authentication redirect
     if (!isAuthenticated && !id) {
       navigate('/login');
@@ -56,7 +58,7 @@ export function Profile() {
       setIsOwnProfile(true);
       loadUserData(currentUser.id);
     }
-  }, [id, currentUser, isAuthenticated, navigate]);
+  }, [id, currentUser, isAuthenticated, authLoading, navigate]);
 
   const loadUserProfile = async (userId: string) => {
     try {
@@ -124,7 +126,8 @@ export function Profile() {
     );
   }
 
-  if (loading || !user) {
+  // Show loading while auth is being checked
+  if (authLoading || (loading && !user)) {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 py-8 text-center">

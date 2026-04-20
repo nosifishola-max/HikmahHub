@@ -23,7 +23,7 @@ const categories = [
 
 export function BecomeVendor() {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { createVendor } = useVendors();
   const { payForVendorVerification } = usePaystack();
 
@@ -40,6 +40,16 @@ export function BecomeVendor() {
   const [error, setError] = useState('');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+
+  if (authLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (!isAuthenticated) {
     navigate('/login');

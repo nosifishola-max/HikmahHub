@@ -68,7 +68,10 @@ export function Header() {
 
                 {/* Profile Dropdown */}
                 <div className="relative group">
-                  <button className="flex items-center space-x-2">
+                  <button 
+                    onClick={() => navigate('/profile')}
+                    className="flex items-center space-x-2"
+                  >
                     <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
                       {user?.profile_image ? (
                         <img 

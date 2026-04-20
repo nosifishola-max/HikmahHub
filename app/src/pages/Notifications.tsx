@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Check, 
@@ -21,7 +21,8 @@ import { formatRelativeTime } from '@/lib/supabase';
 import type { Notification } from '@/types/database';
 
 export function Notifications() {
-  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { 
     notifications, 
     loading, 
@@ -31,10 +32,15 @@ export function Notifications() {
   } = useNotifications();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      getNotifications();
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
     }
-  }, [isAuthenticated]);
+
+    getNotifications();
+  }, [isAuthenticated, authLoading]);
 
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {

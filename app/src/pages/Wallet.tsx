@@ -20,7 +20,7 @@ import type { Transaction } from '@/types/database';
 
 export function WalletPage() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { getTransactions, getWalletBalance } = useWallet();
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -32,13 +32,15 @@ export function WalletPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
+
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
 
     loadWalletData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, authLoading]);
 
   const loadWalletData = async () => {
     setLoading(true);

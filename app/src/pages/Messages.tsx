@@ -22,7 +22,7 @@ export function Messages() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const chatId = searchParams.get('chat');
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { 
     chats, 
     messages, 
@@ -40,13 +40,15 @@ export function Messages() {
   const isMobile = window.innerWidth < 768;
 
   useEffect(() => {
+    if (authLoading) return;
+
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
 
     getChats();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, authLoading]);
 
   useEffect(() => {
     if (chatId) {

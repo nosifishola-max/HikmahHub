@@ -22,7 +22,7 @@ import { supabase, formatCurrency, formatDate } from '@/lib/supabase';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, loading: authLoading } = useAuth();
   
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -37,6 +37,8 @@ export function AdminDashboard() {
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
 
   useEffect(() => {
+    if (authLoading) return;
+
     if (!isAuthenticated) {
       navigate('/login');
       return;
@@ -48,7 +50,7 @@ export function AdminDashboard() {
     }
 
     loadDashboardData();
-  }, [isAuthenticated, isAdmin]);
+  }, [isAuthenticated, isAdmin, authLoading]);
 
   const loadDashboardData = async () => {
     

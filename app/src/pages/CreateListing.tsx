@@ -41,7 +41,7 @@ const conditions = [
 
 export function CreateListing() {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { createListing } = useListings();
   const { payForListing } = usePaystack();
 
@@ -57,6 +57,16 @@ export function CreateListing() {
   const [error, setError] = useState('');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [listingFee, setListingFee] = useState(0);
+
+  if (authLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (!isAuthenticated) {
     navigate('/login');
