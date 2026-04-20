@@ -31,7 +31,7 @@ export function Layout({ children, hideNav = false, hideHeader = false }: Layout
       {!hideHeader && <Header />}
       
       <main className={`flex-grow ${!hideHeader ? 'pt-16' : ''}`}>
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {children}
         </div>
       </main>

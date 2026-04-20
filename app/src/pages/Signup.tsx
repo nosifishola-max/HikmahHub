@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/hooks';
+import { toast } from 'sonner';
 
 export function Signup() {
   const navigate = useNavigate();
@@ -59,11 +60,19 @@ export function Signup() {
 
     if (error) {
       setError(error.message || 'Failed to create account');
+      toast.error('Signup failed: ' + (error.message || 'Unknown error'));
       setLoading(false);
       return;
     }
 
-    navigate('/');
+    // Show success feedback before redirecting
+    toast.success('Account created successfully! Welcome to HikmahHub! 🎉');
+    setLoading(false);
+    
+    // Redirect after brief delay to show toast
+    setTimeout(() => {
+      navigate('/');
+    }, 1500);
   };
 
   return (

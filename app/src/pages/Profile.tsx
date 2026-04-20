@@ -95,13 +95,16 @@ export function Profile() {
     try {
       // Load user's listings
       const result: any = await fetchListings({ userId });
-      setUserListings(result.data || []);
+      setUserListings((result?.data) || []);
 
       // Load vendor profile if applicable
       const { data: vendorData } = await getVendorByUserId(userId);
-      setVendorProfile(vendorData);
+      setVendorProfile(vendorData || null);
     } catch (err) {
       console.error('Error loading user data:', err);
+      // Don't fail silently - continue with empty data
+      setUserListings([]);
+      setVendorProfile(null);
     }
   };
 
@@ -146,10 +149,10 @@ export function Profile() {
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
               {/* Avatar */}
               <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                {user.profile_image ? (
+                {user?.profile_image ? (
                   <img 
                     src={user.profile_image} 
-                    alt={user.name}
+                    alt={user.name || 'User'}
                     className="w-24 h-24 rounded-full object-cover"
                   />
                 ) : (
@@ -160,14 +163,14 @@ export function Profile() {
               {/* Info */}
               <div className="flex-1 text-center md:text-left">
                 <div className="flex items-center justify-center md:justify-start gap-2">
-                  <h1 className="text-2xl font-bold">{user.name}</h1>
-                  {user.role === 'vendor' && (
+                  <h1 className="text-2xl font-bold">{user?.name || 'User Profile'}</h1>
+                  {user?.role === 'vendor' && (
                     <Badge className="bg-emerald-600">
                       <Store className="h-3 w-3 mr-1" />
                       Vendor
                     </Badge>
                   )}
-                  {user.verification_status === 'verified' && (
+                  {user?.verification_status === 'verified' && (
                     <Badge className="bg-blue-500">
                       <Shield className="h-3 w-3 mr-1" />
                       Verified
@@ -184,11 +187,11 @@ export function Profile() {
                   )}
                   <div className="flex items-center justify-center md:justify-start gap-2">
                     <MapPin className="h-4 w-4" />
-                    <span>{user.campus}</span>
+                    <span>{user?.campus || 'Campus not specified'}</span>
                   </div>
                   <div className="flex items-center justify-center md:justify-start gap-2">
                     <Mail className="h-4 w-4" />
-                    <span>{user.email}</span>
+                    <span>{user?.email || 'No email'}</span>
                   </div>
                   {user.phone && (
                     <div className="flex items-center justify-center md:justify-start gap-2">
