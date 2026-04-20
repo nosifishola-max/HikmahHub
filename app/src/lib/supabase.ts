@@ -19,7 +19,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
 export const PRICING = {
   LISTING: {
     FIRST_FREE: true,
-    SUBSEQUENT: 200,
+    SUBSEQUENT: 0,
   },
   BOOST: {
     FEATURED: 500,    // 48 hours, top of feed
