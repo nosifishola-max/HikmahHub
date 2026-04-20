@@ -38,10 +38,11 @@ export function useAuth() {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      setUser(data as User);
+      // Handle null data gracefully (e.g., fresh signup before user row created)
+      setUser(data as User | null);
     } catch (error) {
       console.error('Error fetching user profile:', error);
     } finally {
@@ -67,7 +68,7 @@ export function useAuth() {
           .from('users')
           .select('id')
           .eq('referral_code', referralCode)
-          .single() as any;
+          .maybeSingle() as any;
 
         if (referrer) {
           await supabase
@@ -117,7 +118,7 @@ export function useAuth() {
         .update(updates)
         .eq('id', user.id)
         .select()
-        .single() as any;
+        .maybeSingle() as any;
 
       if (error) throw error;
       setUser(data as User);

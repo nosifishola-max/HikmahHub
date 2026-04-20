@@ -70,7 +70,7 @@ export function Profile() {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
         console.error('Error fetching user profile:', fetchError);
@@ -82,6 +82,8 @@ export function Profile() {
         setUser(data as any);
         setIsOwnProfile(currentUser?.id === userId);
         await loadUserData(userId);
+      } else {
+        setError('User profile not found');
       }
     } catch (err: any) {
       console.error('Error in loadUserProfile:', err);
