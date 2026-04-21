@@ -211,9 +211,9 @@ export function Signup() {
               <Button 
                 type="submit" 
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
-                disabled={loading}
+                loading={loading}
               >
-                {loading ? 'Creating account...' : 'Create Account'}
+                Create Account
               </Button>
             </form>
 

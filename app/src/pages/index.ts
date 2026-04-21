@@ -11,3 +11,4 @@ export { Vendors } from './Vendors';
 export { BecomeVendor } from './BecomeVendor';
 export { Notifications } from './Notifications';
 export { AdminDashboard } from './AdminDashboard';
+export { AuthCallback } from './AuthCallback';

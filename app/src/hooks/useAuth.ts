@@ -32,7 +32,7 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserProfile = async (userId: string) => {
+  const fetchUserProfile = async (userId: string, retries = 3) => {
     try {
       const { data, error } = await supabase
         .from('users')
@@ -41,12 +41,20 @@ export function useAuth() {
         .maybeSingle();
 
       if (error) throw error;
-      // Handle null data gracefully (e.g., fresh signup before user row created)
+      
+      if (!data && retries > 0) {
+        // Retry after a short delay - database row creation (via triggers) might be slightly delayed
+        setTimeout(() => fetchUserProfile(userId, retries - 1), 1000);
+        return;
+      }
+
       setUser(data as User | null);
     } catch (error) {
       console.error('Error fetching user profile:', error);
     } finally {
-      setLoading(false);
+      if (retries === 0 || user) {
+        setLoading(false);
+      }
     }
   };
 

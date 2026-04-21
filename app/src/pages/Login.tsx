@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/hooks';
+import { toast } from 'sonner';
 
 export function Login() {
   const navigate = useNavigate();
@@ -27,10 +28,12 @@ export function Login() {
 
     if (error) {
       setError(error.message || 'Invalid email or password');
+      toast.error(error.message || 'Invalid email or password');
       setLoading(false);
       return;
     }
 
+    toast.success('Welcome back! 👋');
     navigate('/');
   };
 
@@ -111,9 +114,9 @@ export function Login() {
               <Button 
                 type="submit" 
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
-                disabled={loading}
+                loading={loading}
               >
-                {loading ? 'Signing in...' : 'Sign In'}
+                Sign In
               </Button>
             </form>
 

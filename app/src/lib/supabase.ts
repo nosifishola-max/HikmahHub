@@ -9,6 +9,13 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    flowType: 'pkce',
+    debug: false,
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'hikmahhub-web/1.0',
+    },
   },
 });
 

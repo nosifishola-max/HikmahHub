@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Menu, X, Wallet, User, LogOut } from 'lucide-react';
+import { Bell, Menu, X, Wallet, User, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useNotifications } from '@/hooks';
 import { formatCurrency } from '@/lib/supabase';
@@ -48,8 +48,8 @@ export function Header() {
                   className="flex items-center space-x-1 bg-emerald-50 px-3 py-1.5 rounded-full"
                 >
                   <Wallet className="h-4 w-4 text-emerald-600" />
-                  <span className="text-sm font-medium text-emerald-700">
-                    {formatCurrency(user?.wallet_balance || 0)}
+                  <span className="text-sm font-medium text-emerald-700 min-w-[40px] flex items-center justify-center">
+                    {user ? formatCurrency(user.wallet_balance || 0) : <Loader2 className="h-3 w-3 animate-spin" />}
                   </span>
                 </button>
 

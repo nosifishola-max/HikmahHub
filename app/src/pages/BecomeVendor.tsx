@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Upload, Info, CheckCircle } from 'lucide-react';
+import { Store, Upload, Info, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,7 +44,8 @@ export function BecomeVendor() {
   if (authLoading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
           <p className="text-gray-500">Loading...</p>
         </div>
       </Layout>
@@ -280,9 +281,9 @@ export function BecomeVendor() {
             <Button 
               type="submit" 
               className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-              disabled={loading}
+              loading={loading}
             >
-              {loading ? 'Processing...' : 'Continue to Payment'}
+              Continue to Payment
             </Button>
           </div>
         </form>
@@ -322,9 +323,9 @@ export function BecomeVendor() {
             <Button 
               className="flex-1 bg-emerald-600 hover:bg-emerald-700"
               onClick={handlePayment}
-              disabled={loading}
+              loading={loading}
             >
-              {loading ? 'Processing...' : 'Pay Now'}
+              Pay Now
             </Button>
           </div>
         </DialogContent>

@@ -13,7 +13,9 @@ const PORT = process.env.PORT || 3001;
 // Supabase configuration
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
 const supabase = createClient(supabaseUrl, supabaseKey);
+const users = supabase.schema('YOUR_SCHEMA').from('users')
 
 // Paystack API configuration
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
