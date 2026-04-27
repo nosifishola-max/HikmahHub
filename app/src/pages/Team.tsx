@@ -20,9 +20,9 @@ const teamMembers: TeamMember[] = [
     bio: 'Worked on core system implementation.',
   },
   {
-    name: 'Emily',
-    role: 'Backend Developer',
-    bio: 'Responsible for backend systems and data handling.',
+    name: 'A. Emmanuel'
+    role: 'Cloud Engineer and Backend Developer'
+    bio: 'Responsible for backend systems and cloud security
   },
 ];
 
