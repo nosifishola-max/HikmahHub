@@ -7,6 +7,13 @@ import { Home, Login, Signup, Marketplace, ListingDetail, CreateListing, Profile
 import { AuthCallback } from '@/pages/AuthCallback';
 import TodoApp from './TodoApp';
 
+import CustomerDashboardOverview from '@/pages/dashboard/CustomerDashboardOverview';
+import CustomerBrowseListings from '@/pages/dashboard/CustomerBrowseListings';
+import CustomerSavedItems from '@/pages/dashboard/CustomerSavedItems';
+import CustomerOrders from '@/pages/dashboard/CustomerOrders';
+import VendorOverview from '@/pages/vendor/VendorOverview';
+import AdminOverview from '@/pages/admin/AdminOverview';
+
 function AppRoutes() {
   return (
     <Routes>
@@ -24,6 +31,57 @@ function AppRoutes() {
       <Route path="/vendor/:id" element={<Vendors />} />
 
       {/* Protected Routes */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <CustomerDashboardOverview />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/browse"
+        element={
+          <ProtectedRoute>
+            <CustomerBrowseListings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/saved"
+        element={
+          <ProtectedRoute>
+            <CustomerSavedItems />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/orders"
+        element={
+          <ProtectedRoute>
+            <CustomerOrders />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/vendor"
+        element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorOverview />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminOverview />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Existing protected routes */}
       <Route 
         path="/create-listing" 
         element={
@@ -89,14 +147,7 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
-      <Route 
-        path="/admin" 
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard />
-          </ProtectedRoute>
-        } 
-      />
+      {/* (Removed legacy duplicate /admin route; /admin now uses AdminOverview) */}
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

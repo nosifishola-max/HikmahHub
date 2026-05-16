@@ -1,21 +1,28 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Store, 
-  CreditCard, 
+import {
+  LayoutDashboard,
+  Users,
+  Store,
+  CreditCard,
   Gift,
   Zap,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/hooks';
 import { supabase, formatCurrency, formatDate } from '@/lib/supabase';
@@ -23,7 +30,7 @@ import { supabase, formatCurrency, formatDate } from '@/lib/supabase';
 export function AdminDashboard() {
   const navigate = useNavigate();
   const { isAuthenticated, isAdmin, loading: authLoading } = useAuth();
-  
+
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalVendors: 0,
@@ -32,6 +39,7 @@ export function AdminDashboard() {
     activeBoosts: 0,
     pendingVerifications: 0,
   });
+
   const [transactions, setTransactions] = useState<any[]>([]);
   const [pendingVendors, setPendingVendors] = useState<any[]>([]);
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
@@ -53,9 +61,7 @@ export function AdminDashboard() {
   }, [isAuthenticated, isAdmin, authLoading]);
 
   const loadDashboardData = async () => {
-    
     try {
-      // Get stats
       const { count: userCount } = await supabase
         .from('users')
         .select('*', { count: 'exact', head: true });
@@ -89,13 +95,13 @@ export function AdminDashboard() {
       setStats({
         totalUsers: userCount || 0,
         totalVendors: vendorCount || 0,
-        totalRevenue: revenueData?.reduce((sum, t) => sum + t.amount, 0) || 0,
-        totalCashback: cashbackData?.reduce((sum, t) => sum + t.amount, 0) || 0,
+        totalRevenue: revenueData?.reduce((sum, t) => sum + Number(t.amount || 0), 0) || 0,
+        totalCashback:
+          cashbackData?.reduce((sum, t) => sum + Number(t.amount || 0), 0) || 0,
         activeBoosts: boostCount || 0,
         pendingVerifications: pendingCount || 0,
       });
 
-      // Get recent transactions
       const { data: txData } = await supabase
         .from('transactions')
         .select(`
@@ -107,7 +113,6 @@ export function AdminDashboard() {
 
       setTransactions(txData || []);
 
-      // Get pending vendors
       const { data: pendingVendorsData } = await supabase
         .from('vendors')
         .select(`
@@ -120,7 +125,6 @@ export function AdminDashboard() {
 
       setPendingVendors(pendingVendorsData || []);
 
-      // Get recent users
       const { data: usersData } = await supabase
         .from('users')
         .select('*')
@@ -143,7 +147,6 @@ export function AdminDashboard() {
         })
         .eq('id', vendorId);
 
-      // Create notification
       const { data: vendor } = await supabase
         .from('vendors')
         .select('user_id')
@@ -155,7 +158,8 @@ export function AdminDashboard() {
           user_id: vendor.user_id,
           type: 'vendor_verified',
           title: 'Vendor Verified!',
-          message: 'Your vendor account has been verified. You can now enjoy all vendor benefits!',
+          message:
+            'Your vendor account has been verified. You can now enjoy all vendor benefits!',
         });
       }
 
@@ -180,7 +184,6 @@ export function AdminDashboard() {
           </Button>
         </div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <StatCard
             title="Total Users"
@@ -247,8 +250,16 @@ export function AdminDashboard() {
                     {transactions.map((tx) => (
                       <TableRow key={tx.id}>
                         <TableCell>{tx.user?.name || 'Unknown'}</TableCell>
-                        <TableCell className="capitalize">{tx.type.replace(/_/g, ' ')}</TableCell>
-                        <TableCell className={tx.type === 'cashback' || tx.type === 'referral_reward' ? 'text-green-600' : ''}>
+                        <TableCell className="capitalize">
+                          {String(tx.type || '').replace(/_/g, ' ')}
+                        </TableCell>
+                        <TableCell
+                          className={
+                            tx.type === 'cashback' || tx.type === 'referral_reward'
+                              ? 'text-green-600'
+                              : ''
+                          }
+                        >
                           {tx.type === 'cashback' || tx.type === 'referral_reward' ? '+' : '-'}
                           {formatCurrency(tx.amount)}
                         </TableCell>
@@ -273,9 +284,7 @@ export function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 {pendingVendors.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    No pending verifications
-                  </div>
+                  <div className="text-center py-8 text-gray-500">No pending verifications</div>
                 ) : (
                   <Table>
                     <TableHeader>
@@ -304,10 +313,7 @@ export function AdminDashboard() {
                                 <CheckCircle className="h-4 w-4 mr-1" />
                                 Verify
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                              >
+                              <Button size="sm" variant="destructive">
                                 <XCircle className="h-4 w-4 mr-1" />
                                 Reject
                               </Button>
@@ -363,15 +369,15 @@ export function AdminDashboard() {
   );
 }
 
-function StatCard({ 
-  title, 
-  value, 
-  icon, 
-  color 
-}: { 
-  title: string; 
-  value: string; 
-  icon: React.ReactNode; 
+function StatCard({
+  title,
+  value,
+  icon,
+  color,
+}: {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
   color: string;
 }) {
   return (
@@ -382,9 +388,7 @@ function StatCard({
             <p className="text-sm text-gray-500">{title}</p>
             <p className="text-xl font-bold mt-1">{value}</p>
           </div>
-          <div className={`${color} text-white p-2 rounded-lg`}>
-            {icon}
-          </div>
+          <div className={`${color} text-white p-2 rounded-lg`}>{icon}</div>
         </div>
       </CardContent>
     </Card>
