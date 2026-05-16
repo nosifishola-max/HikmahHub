@@ -105,13 +105,14 @@ export function BecomeVendor() {
   };
 
   const createVendorProfile = async () => {
-    const { error: vendorError } = await createVendor({
+    const { data: vendorData, error: vendorError } = await createVendor({
       ...formData,
       business_logo: logo || undefined,
-    });
+    } as any);
 
     if (vendorError) {
-      setError(vendorError.message || 'Failed to create vendor profile');
+      console.error('[BecomeVendor] createVendor failed:', vendorError);
+      setError((vendorError as any)?.message || String(vendorError) || 'Failed to create vendor profile');
       setLoading(false);
       setPaymentDialogOpen(false);
       return;

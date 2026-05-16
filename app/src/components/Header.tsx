@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, Menu, X, Wallet, User, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth, useNotifications } from '@/hooks';
+import { useNotifications } from '@/hooks';
+import { useAuthContext } from '@/context/AuthContext';
 import { formatCurrency } from '@/lib/supabase';
 
 export function Header() {
-  const { user, signOut, isAuthenticated } = useAuth();
+  const { user, signOut, isAuthenticated } = useAuthContext();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

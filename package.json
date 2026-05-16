@@ -1,6 +1,7 @@
 {
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.3",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.105.4",
     "axios": "^1.15.0",
     "react-paystack": "^6.0.0"
   },

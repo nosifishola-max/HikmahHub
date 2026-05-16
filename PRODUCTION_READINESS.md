@@ -1,13 +1,32 @@
-# HikmahHub Production Readiness Checklist
+# Production Readiness Checklist
 
-## 🚀 Pre-Deployment Verification
+**HikmahHub Campus Marketplace - Deployment Guide**
 
-### Code Quality
-- [ ] All TypeScript errors resolved (`npm run lint`)
-- [ ] No console errors in browser DevTools
-- [ ] All imports properly resolved
-- [ ] No unused dependencies
-- [ ] Error boundaries in place
+---
+
+## ✅ Pre-Deployment Requirements
+
+### Infrastructure
+- [ ] Domain name registered
+- [ ] SSL certificate obtained
+- [ ] CDN configured (Cloudflare recommended)
+- [ ] Backup strategy planned
+- [ ] Monitoring setup configured
+- [ ] Logging service integrated
+
+### Services Setup
+- [ ] Supabase project created & configured
+- [ ] Paystack account verified & keys obtained
+- [ ] Email service configured (SendGrid/Mailgun)
+- [ ] Storage bucket created (Supabase Storage)
+- [ ] Database backups scheduled
+
+### Code Review
+- [ ] Security audit completed
+- [ ] Dependencies updated to latest safe versions
+- [ ] No hardcoded secrets in code
+- [ ] API rate limiting implemented
+- [ ] CORS properly configured for production domain
 - [ ] Loading states for all async operations
 - [ ] Proper error messages shown to users
 

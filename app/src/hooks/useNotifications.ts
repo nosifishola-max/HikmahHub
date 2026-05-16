@@ -9,20 +9,54 @@ export function useNotifications() {
 
   // Subscribe to realtime notifications
   useEffect(() => {
-    const subscription = supabase
-      .channel('notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-        const newNotification = payload.new as Notification;
-        setNotifications(prev => [newNotification, ...prev]);
-        if (!newNotification.is_read) {
-          setUnreadCount(prev => prev + 1);
-        }
-      })
-      .subscribe();
+    let subscription: any;
+
+    const setupSubscription = () => {
+      try {
+        subscription = supabase
+          .channel('notifications')
+          .on(
+            'postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'notifications' },
+            (payload) => {
+              const newNotification = payload.new as Notification;
+              console.log('[useNotifications] realtime INSERT received:', {
+                notificationId: newNotification.id,
+                user_id: newNotification.user_id,
+                type: newNotification.type,
+                is_read: newNotification.is_read,
+              });
+
+              setNotifications(prev => [newNotification, ...prev]);
+
+              if (!newNotification.is_read) {
+                setUnreadCount(prev => prev + 1);
+              }
+            }
+          )
+          .subscribe();
+      } catch (error) {
+        console.error('[useNotifications] subscription setup error:', error);
+      }
+    };
+
+    // Load existing notifications on mount so the UI/badge is correct
+    getNotifications().catch((e) => {
+      console.error('[useNotifications] initial getNotifications failed:', e);
+    });
+
+    setupSubscription();
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        try {
+          subscription.unsubscribe();
+        } catch (error) {
+          // Silently ignore unsubscribe errors
+        }
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getNotifications = useCallback(async () => {

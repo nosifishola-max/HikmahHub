@@ -91,20 +91,24 @@ export function useListings() {
   }, []);
 
   const getListing = useCallback(async (id: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('listings')
-        .select(`
-          *,
-          user:users(*)
-        `)
-        .eq('id', id)
-        .single();
+    const apiBaseUrl = import.meta.env.VITE_API_URL as string | undefined;
 
-      if (error) throw error;
-      return { data: data as ListingWithUser, error: null };
+    if (!apiBaseUrl) {
+      return { data: null as ListingWithUser | null, error: 'Missing VITE_API_URL' };
+    }
+
+    try {
+      const url = new URL(`/api/listings/${encodeURIComponent(id)}`, apiBaseUrl.replace(/\/+$/, ''));
+      const res = await fetch(url.toString());
+      const json: any = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        return { data: null as ListingWithUser | null, error: json?.error || `Failed to fetch listing (${res.status})` };
+      }
+
+      return { data: json?.data as ListingWithUser, error: null as string | null };
     } catch (error: any) {
-      return { data: null, error };
+      return { data: null as ListingWithUser | null, error: error?.message || 'Failed to fetch listing' };
     }
   }, []);
 
@@ -120,21 +124,49 @@ export function useListings() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Not authenticated');
 
-      // Check if user has used free listing
-      const { data: user } = await supabase
+      const userId = userData.user.id;
+
+      // Ensure there's a matching public.users row (after switching Supabase projects)
+      // backend already auto-provisions this row; the frontend needs the same for direct writes.
+      const { data: existingUser, error: userSelectError } = await supabase
         .from('users')
-        .select('free_listing_used, listings_count')
-        .eq('id', userData.user.id)
+        .select('id, free_listing_used, listings_count')
+        .eq('id', userId)
         .single() as any;
 
-      const listingFee = user?.free_listing_used ? PRICING.LISTING.SUBSEQUENT : 0;
+      if (userSelectError) {
+        // If the row doesn't exist, create it; otherwise rethrow.
+        const insertPayload = {
+          id: userId,
+          email: userData.user.email ?? null,
+          name: (userData.user.user_metadata?.name as string | undefined) || (userData.user.email ? String(userData.user.email).split('@')[0] : 'User'),
+          role: 'student',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const { data: createdUser, error: userInsertError } = await supabase
+          .from('users')
+          .insert(insertPayload)
+          .select('id, free_listing_used, listings_count')
+          .single() as any;
+
+        if (userInsertError) throw userInsertError;
+
+        return await createListing({
+          ...listingData,
+          // keep params same; we just used recursion to reuse the same code path
+        } as any);
+      }
+
+      const listingFee = existingUser?.free_listing_used ? PRICING.LISTING.SUBSEQUENT : 0;
 
       const { data, error } = await supabase
         .from('listings')
         .insert({
           ...listingData,
-          user_id: userData.user.id,
-          listing_fee_paid: !user?.free_listing_used,
+          user_id: userId,
+          listing_fee_paid: !existingUser?.free_listing_used,
           listing_fee_amount: listingFee,
         })
         .select()
@@ -142,14 +174,13 @@ export function useListings() {
 
       if (error) throw error;
 
-      // Update user's listing count
       await supabase
         .from('users')
         .update({
           free_listing_used: true,
-          listings_count: (user?.listings_count || 0) + 1,
+          listings_count: (existingUser?.listings_count || 0) + 1,
         })
-        .eq('id', userData.user.id) as any;
+        .eq('id', userId) as any;
 
       return { data: data as Listing, error: null };
     } catch (error: any) {

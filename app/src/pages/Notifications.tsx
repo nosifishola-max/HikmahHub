@@ -119,62 +119,21 @@ export function Notifications() {
 
   const unreadNotifications = notifications.filter(n => !n.is_read);
   const readNotifications = notifications.filter(n => n.is_read);
-    switch (type) {
-      case 'payment_success':
-        return <CreditCard className="h-5 w-5 text-green-600" />;
-      case 'payment_failed':
-        return <CreditCard className="h-5 w-5 text-red-600" />;
-      case 'cashback_received':
-        return <Gift className="h-5 w-5 text-emerald-600" />;
-      case 'boost_activated':
-      case 'boost_expired':
-        return <Zap className="h-5 w-5 text-amber-500" />;
-      case 'new_message':
-        return <MessageSquare className="h-5 w-5 text-blue-600" />;
-      case 'vendor_verified':
-        return <Store className="h-5 w-5 text-purple-600" />;
-      case 'referral_completed':
-        return <Users className="h-5 w-5 text-emerald-600" />;
-      default:
-        return <Bell className="h-5 w-5 text-gray-500" />;
-    }
-  };
-
-  const getNotificationLink = (notification: Notification) => {
-    switch (notification.type) {
-      case 'new_message':
-        return `/messages${notification.related_id ? `?chat=${notification.related_id}` : ''}`;
-      case 'boost_activated':
-      case 'boost_expired':
-      case 'listing_sold':
-        return notification.related_id ? `/listing/${notification.related_id}` : '/my-listings';
-      case 'vendor_verified':
-        return '/vendor-dashboard';
-      case 'payment_success':
-      case 'payment_failed':
-      case 'cashback_received':
-        return '/wallet';
-      case 'referral_completed':
-        return '/profile';
-      default:
-        return '#';
-    }
-  };
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button 
               onClick={() => navigate('/')} 
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
               aria-label="Go back"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Notifications</h1>
           </div>
           {unreadNotifications.length > 0 && (
             <Button 
@@ -182,9 +141,11 @@ export function Notifications() {
               size="sm"
               onClick={handleMarkAllAsRead}
               aria-label={`Mark ${unreadNotifications.length} notifications as read`}
+              className="text-xs sm:text-sm w-full sm:w-auto"
             >
-              <Check className="h-4 w-4 mr-2" />
-              Mark all as read
+              <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Mark all as read</span>
+              <span className="sm:hidden">Mark read</span>
             </Button>
           )}
         </div>

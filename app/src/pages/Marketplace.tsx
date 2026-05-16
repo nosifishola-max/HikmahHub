@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Layout } from '@/components/Layout';
 import { useListings } from '@/hooks';
 import { formatCurrency, formatRelativeTime } from '@/lib/supabase';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const categories = [
   'All',
@@ -150,110 +151,174 @@ export function Marketplace() {
         </div>
 
         {/* Results Count */}
-        <div className="mb-4 text-sm text-gray-600">
-          {loading ? 'Loading...' : `${sortedListings.length} listings found`}
+        <div className="mb-4 text-sm text-gray-600 flex items-center justify-between gap-3">
+          <span>
+            {loading ? 'Loading listings…' : `${sortedListings.length} listings found`}
+          </span>
+          {(sortedListings.length === 0 && !loading) && (
+            <div className="flex gap-2">
+              {(selectedCategory !== 'All' || !!searchQuery) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-gray-200 hover:bg-gray-50"
+                  onClick={() => {
+                    setSelectedCategory('All');
+                    setSearchQuery('');
+                    const params = new URLSearchParams(searchParams);
+                    params.delete('search');
+                    params.delete('category');
+                    setSearchParams(params);
+                  }}
+                >
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Listings Grid */}
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {sortedListings.map((listing) => (
-              <Link key={listing.id} to={`/listing/${listing.id}`}>
-                <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
-                  <div className="aspect-square bg-gray-200 relative">
-                    {listing.images?.[0] ? (
-                      <img 
-                        src={listing.images[0]} 
-                        alt={listing.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        No Image
+            {loading
+              ? Array.from({ length: 10 }).map((_, idx) => (
+                  <div key={idx} className="h-full">
+                    <Card className="overflow-hidden h-full">
+                      <div className="aspect-square bg-gray-100 relative">
+                        <Skeleton className="w-full h-full" />
                       </div>
-                    )}
-                    {listing.is_boosted && (
-                      <Badge className="absolute top-2 left-2 bg-amber-500">
-                        <Zap className="h-3 w-3 mr-1" />
-                        Boosted
-                      </Badge>
-                    )}
-                    {listing.condition && (
-                      <Badge 
-                        variant="secondary" 
-                        className="absolute bottom-2 left-2"
-                      >
-                        {listing.condition}
-                      </Badge>
-                    )}
+                      <CardContent className="p-3 space-y-2">
+                        <Skeleton className="h-4 w-4/5" />
+                        <Skeleton className="h-5 w-1/2" />
+                        <div className="flex items-center justify-between gap-2">
+                          <Skeleton className="h-3 w-20" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                  <CardContent className="p-3">
-                    <h3 className="font-medium text-gray-900 truncate">{listing.title}</h3>
-                    <p className="text-emerald-600 font-bold">{formatCurrency(listing.price)}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-gray-500 capitalize">{listing.category}</span>
-                      <span className="text-xs text-gray-500">{formatRelativeTime(listing.created_at)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                ))
+              : sortedListings.map((listing) => (
+                  <Link key={listing.id} to={`/listing/${listing.id}`}>
+                    <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
+                      <div className="aspect-square bg-gray-200 relative">
+                        {listing.images?.[0] ? (
+                          <img
+                            src={listing.images[0]}
+                            alt={listing.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            No Image
+                          </div>
+                        )}
+                        {listing.is_boosted && (
+                          <Badge className="absolute top-2 left-2 bg-amber-500">
+                            <Zap className="h-3 w-3 mr-1" />
+                            Boosted
+                          </Badge>
+                        )}
+                        {listing.condition && (
+                          <Badge
+                            variant="secondary"
+                            className="absolute bottom-2 left-2"
+                          >
+                            {listing.condition}
+                          </Badge>
+                        )}
+                      </div>
+                      <CardContent className="p-3">
+                        <h3 className="font-medium text-gray-900 truncate">{listing.title}</h3>
+                        <p className="text-emerald-600 font-bold">{formatCurrency(listing.price)}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs text-gray-500 capitalize">{listing.category}</span>
+                          <span className="text-xs text-gray-500">{formatRelativeTime(listing.created_at)}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
           </div>
         ) : (
           <div className="space-y-4">
-            {sortedListings.map((listing) => (
-              <Link key={listing.id} to={`/listing/${listing.id}`}>
-                <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="flex">
-                    <div className="w-32 h-32 bg-gray-200 flex-shrink-0 relative">
-                      {listing.images?.[0] ? (
-                        <img 
-                          src={listing.images[0]} 
-                          alt={listing.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          No Image
-                        </div>
-                      )}
-                      {listing.is_boosted && (
-                        <Badge className="absolute top-2 left-2 bg-amber-500">
-                          <Zap className="h-3 w-3 mr-1" />
-                        </Badge>
-                      )}
-                    </div>
-                    <CardContent className="p-4 flex-1">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium text-gray-900">{listing.title}</h3>
-                          <p className="text-sm text-gray-600 line-clamp-2 mt-1">{listing.description}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="outline" className="text-xs capitalize">{listing.category}</Badge>
-                            {listing.condition && (
-                              <Badge variant="secondary" className="text-xs">{listing.condition}</Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-emerald-600 font-bold text-lg">{formatCurrency(listing.price)}</p>
-                          <p className="text-xs text-gray-500">{formatRelativeTime(listing.created_at)}</p>
-                        </div>
+            {loading
+              ? Array.from({ length: 6 }).map((_, idx) => (
+                  <Card key={idx} className="overflow-hidden">
+                    <div className="flex">
+                      <div className="w-32 h-32 bg-gray-100 relative flex-shrink-0">
+                        <Skeleton className="w-full h-full" />
                       </div>
-                    </CardContent>
-                  </div>
-                </Card>
-              </Link>
-            ))}
+                      <CardContent className="p-4 flex-1 space-y-2">
+                        <Skeleton className="h-5 w-2/3" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-5/6" />
+                        <div className="flex items-center gap-2 pt-2">
+                          <Skeleton className="h-6 w-20 rounded-full" />
+                          <Skeleton className="h-6 w-24 rounded-full" />
+                        </div>
+                        <div className="pt-2 flex items-center justify-between">
+                          <Skeleton className="h-5 w-24" />
+                          <Skeleton className="h-3 w-20" />
+                        </div>
+                      </CardContent>
+                    </div>
+                  </Card>
+                ))
+              : sortedListings.map((listing) => (
+                  <Link key={listing.id} to={`/listing/${listing.id}`}>
+                    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+                      <div className="flex">
+                        <div className="w-32 h-32 bg-gray-200 flex-shrink-0 relative">
+                          {listing.images?.[0] ? (
+                            <img
+                              src={listing.images[0]}
+                              alt={listing.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              No Image
+                            </div>
+                          )}
+                          {listing.is_boosted && (
+                            <Badge className="absolute top-2 left-2 bg-amber-500">
+                              <Zap className="h-3 w-3 mr-1" />
+                            </Badge>
+                          )}
+                        </div>
+                        <CardContent className="p-4 flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-medium text-gray-900">{listing.title}</h3>
+                              <p className="text-sm text-gray-600 line-clamp-2 mt-1">{listing.description}</p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="outline" className="text-xs capitalize">{listing.category}</Badge>
+                                {listing.condition && (
+                                  <Badge variant="secondary" className="text-xs">{listing.condition}</Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-emerald-600 font-bold text-lg">{formatCurrency(listing.price)}</p>
+                              <p className="text-xs text-gray-500">{formatRelativeTime(listing.created_at)}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
           </div>
         )}
 
         {/* Empty State */}
         {!loading && sortedListings.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-6xl mb-4">🔍</div>
+            <div className="text-6xl mb-4">🛒</div>
             <h3 className="text-lg font-medium text-gray-900">No listings found</h3>
-            <p className="text-gray-600 mt-2">Try adjusting your search or filters</p>
+            <p className="text-gray-600 mt-2">Try adjusting your search or filters.</p>
           </div>
         )}
       </div>

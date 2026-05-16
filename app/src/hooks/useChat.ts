@@ -137,12 +137,14 @@ export function useChat() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Not authenticated');
 
+      const senderId = userData.user.id;
+
       // Create message
       const { data: message, error: msgError } = await supabase
         .from('messages')
         .insert({
           chat_id: chatId,
-          sender_id: userData.user.id,
+          sender_id: senderId,
           content,
         })
         .select()
@@ -150,7 +152,7 @@ export function useChat() {
 
       if (msgError) throw msgError;
 
-      // Update chat
+      // Load chat participants/unread counters
       const { data: chat } = await supabase
         .from('chats')
         .select('buyer_id, seller_id, buyer_unread, seller_unread')
@@ -158,17 +160,35 @@ export function useChat() {
         .single() as any;
 
       if (chat) {
-        const isBuyer = chat.buyer_id === userData.user.id;
+        const isBuyer = chat.buyer_id === senderId;
+        const recipientId = isBuyer ? chat.seller_id : chat.buyer_id;
+
         const updateData: any = {
           last_message: content,
           last_message_at: new Date().toISOString(),
         };
-        updateData[isBuyer ? 'seller_unread' : 'buyer_unread'] = (isBuyer ? (chat.seller_unread || 0) : (chat.buyer_unread || 0)) + 1;
-        
+        updateData[isBuyer ? 'seller_unread' : 'buyer_unread'] =
+          (isBuyer ? (chat.seller_unread || 0) : (chat.buyer_unread || 0)) + 1;
+
         await supabase
           .from('chats')
           .update(updateData)
           .eq('id', chatId) as any;
+
+        // Create realtime notification for the recipient
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: recipientId,
+            type: 'new_message',
+            title: 'New message',
+            message: content,
+            related_id: chatId,
+            related_type: 'chat',
+            is_read: false,
+          })
+          .select()
+          .single() as any;
       }
 
       return { data: message as Message, error: null };

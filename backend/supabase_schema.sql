@@ -397,6 +397,9 @@ CREATE POLICY "Users can view own notifications" ON notifications
 CREATE POLICY "Users can update own notifications" ON notifications
     FOR UPDATE USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can create own notifications" ON notifications
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
 -- Referrals table policies
 CREATE POLICY "Users can view own referrals" ON referrals
     FOR SELECT USING (auth.uid() = referrer_id OR auth.uid() = referred_user_id);

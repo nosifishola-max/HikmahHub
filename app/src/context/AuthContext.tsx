@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@/lib/supabase';
 
@@ -18,80 +18,104 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const getApiBaseUrl = (): string => {
+  const base = import.meta.env.VITE_API_URL || '';
+  if (!base) return 'http://localhost:3001';
+  return String(base).replace(/\/+$/, '');
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchUserProfileFromBackend = async (accessToken: string): Promise<void> => {
+    const res = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+
+    const json: any = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(json?.error || `Failed to load profile (${res.status})`);
+    }
+
+    // Backend returns: { success: true, data: appUser }
+    setUser(json?.data as User);
+  };
+
   // Initialize auth on component mount
   useEffect(() => {
-    // Recover session from localStorage on app load
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
+        const { data: getSessionData } = await supabase.auth.getSession();
+        const session = getSessionData?.session ?? null;
+
         setSession(session);
-        
+
         if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setLoading(false);
+          const accessToken = (session as any).access_token as string | undefined;
+          if (!accessToken) throw new Error('Missing access token');
+
+          await fetchUserProfileFromBackend(accessToken);
+          return;
         }
+
+        setLoading(false);
       } catch (error) {
         console.error('Error initializing auth:', error);
+        setUser(null);
+        setSession(null);
         setLoading(false);
       }
     };
 
     initializeAuth();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setUser(null);
-          setLoading(false);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      async (_event, nextSession) => {
+        setSession(nextSession);
+
+        if (nextSession?.user) {
+          const accessToken = (nextSession as any).access_token as string | undefined;
+          if (!accessToken) {
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+
+          try {
+            setLoading(true);
+            await fetchUserProfileFromBackend(accessToken);
+          } catch (e) {
+            console.error('Error fetching profile after auth change:', e);
+            setUser(null);
+          } finally {
+            setLoading(false);
+          }
+
+          return;
         }
+
+        setUser(null);
+        setLoading(false);
       }
     );
 
     return () => subscription?.unsubscribe();
   }, []);
 
-  const fetchUserProfile = async (userId: string, retries = 3) => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        setUser(null);
-      } else if (data) {
-        setUser(data as User);
-      } else if (retries > 0) {
-        // Retry after a short delay - database row creation might be delayed
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await fetchUserProfile(userId, retries - 1);
-        return;
-      }
-    } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const signUp = async (email: string, password: string, name: string, referralCode?: string) => {
     try {
       setLoading(true);
+
+      // Keep Supabase auth for sign-up (current backend proxies sign-up too, but this keeps UX working).
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -103,7 +127,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Handle referral if provided
       if (referralCode && data.user) {
         const { data: referrer } = await supabase
           .from('users')
@@ -161,19 +184,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProfile = async (updates: Partial<User>) => {
-    if (!user) return { error: new Error('Not authenticated') };
+    if (!session?.user) return { error: new Error('Not authenticated') };
 
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .update(updates)
-        .eq('id', user.id)
-        .select()
-        .maybeSingle() as any;
+      const accessToken = (session as any)?.access_token as string | undefined;
+      if (!accessToken) throw new Error('Missing access token');
 
-      if (error) throw error;
-      setUser(data as User);
-      return { data: data as User, error: null };
+      const res = await fetch(`${getApiBaseUrl()}/api/users/me`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      const json: any = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || `Failed to update profile (${res.status})`);
+
+      setUser(json?.data as User);
+      return { data: json?.data as User, error: null };
     } catch (error: any) {
       console.error('Update profile error:', error);
       return { data: null, error };
@@ -181,8 +211,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshUser = async () => {
-    if (session?.user) {
-      await fetchUserProfile(session.user.id);
+    try {
+      const accessToken = (session as any)?.access_token as string | undefined;
+      if (!accessToken) return;
+      await fetchUserProfileFromBackend(accessToken);
+    } catch (e) {
+      console.error('refreshUser error:', e);
     }
   };
 

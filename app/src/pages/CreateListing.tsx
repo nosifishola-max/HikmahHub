@@ -128,17 +128,20 @@ export function CreateListing() {
     setLoading(true);
     setPaymentDialogOpen(false);
 
+    // Note: Image upload to Supabase Storage coming soon
+    // For now, we submit without images and store them separately
     const { data, error } = await createListing({
       title: formData.title,
       description: formData.description,
       price: parseFloat(formData.price),
       category: formData.category.toLowerCase(),
       condition: formData.condition || undefined,
-      images,
+      images: [], // TODO: Implement Supabase Storage upload
     });
 
     if (error) {
-      setError(error.message || 'Failed to create listing');
+      console.error('[CreateListing] createListing failed:', error);
+      setError((error as any)?.message || String(error) || 'Failed to create listing');
       setLoading(false);
       return;
     }
@@ -169,11 +172,11 @@ export function CreateListing() {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Create New Listing</h1>
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Create New Listing</h1>
 
         {error && (
-          <Alert variant="destructive" className="mb-4">
+          <Alert variant="destructive" className="mb-4 text-xs sm:text-sm">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -267,10 +270,10 @@ export function CreateListing() {
           {/* Images */}
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Photos</CardTitle>
+              <CardTitle>Photos (Optional)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-4 mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-4 mb-4">
                 {images.map((image, index) => (
                   <div key={index} className="relative aspect-square">
                     <img 
@@ -283,15 +286,15 @@ export function CreateListing() {
                       onClick={() => removeImage(index)}
                       className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3 sm:h-4 sm:w-4" />
                     </button>
                   </div>
                 ))}
                 
                 {images.length < 5 && (
                   <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 transition-colors">
-                    <Camera className="h-8 w-8 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-500">Add Photo</span>
+                    <Camera className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400 mb-1 sm:mb-2" />
+                    <span className="text-xs sm:text-sm text-gray-500 text-center px-1">Add Photo</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -302,8 +305,8 @@ export function CreateListing() {
                   </label>
                 )}
               </div>
-              <p className="text-sm text-gray-500">
-                Add up to 5 photos. First photo will be the cover image.
+              <p className="text-xs sm:text-sm text-gray-500">
+                {images.length === 0 ? 'Add photos to showcase your item (optional).' : `${images.length} photo(s) added.`}
               </p>
             </CardContent>
           </Card>

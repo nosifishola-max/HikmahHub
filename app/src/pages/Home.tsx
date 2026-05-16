@@ -52,46 +52,46 @@ export function Home() {
   return (
     <Layout>
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white py-12 md:py-20">
+      <section className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white py-12 md:py-20 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
-            <h1 className="text-3xl md:text-5xl font-bold mb-4">
+            <h1 className="hero-title text-3xl md:text-5xl font-bold mb-4 animate-fade-in-down">
               Buy & Sell on Campus
             </h1>
-            <p className="text-lg md:text-xl text-emerald-100 mb-8">
+            <p className="hero-subtitle text-lg md:text-xl text-emerald-100 mb-8 animate-fade-in-up">
               The trusted marketplace for Al-Hikmah University students. 
               Find great deals, offer services, and connect with verified vendors.
             </p>
 
             {/* Search Bar */}
-            <form onSubmit={handleSearch} className="flex gap-2 max-w-xl mx-auto">
+            <form onSubmit={handleSearch} className="hero-cta flex gap-2 max-w-xl mx-auto animate-bounce-in flex-col md:flex-row">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 transition-all duration-300" />
                 <Input
                   type="text"
                   placeholder="Search for items, services..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-12 bg-white text-gray-900"
+                  className="pl-10 h-12 bg-white text-gray-900 hover:shadow-md focus:shadow-lg focus:scale-105"
                 />
               </div>
-              <Button type="submit" className="h-12 px-6 bg-emerald-900 hover:bg-emerald-950">
+              <Button type="submit" className="h-12 px-6 bg-emerald-900 hover:bg-emerald-950 transition-all duration-300 hover:shadow-lg">
                 Search
               </Button>
             </form>
 
             {/* Quick Stats */}
-            <div className="flex justify-center gap-8 mt-8 text-sm">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
+            <div className="flex justify-center gap-8 mt-8 text-sm flex-wrap animate-fade-in">
+              <div className="flex items-center gap-2 list-item hover:scale-110 transition-transform duration-300">
+                <Users className="h-5 w-5 animate-pulse-glow" />
                 <span>1000+ Students</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
+              <div className="flex items-center gap-2 list-item hover:scale-110 transition-transform duration-300">
+                <Shield className="h-5 w-5 animate-pulse-glow" />
                 <span>Verified Vendors</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Zap className="h-5 w-5" />
+              <div className="flex items-center gap-2 list-item hover:scale-110 transition-transform duration-300">
+                <Zap className="h-5 w-5 animate-pulse-glow" />
                 <span>5% Cashback</span>
               </div>
             </div>
@@ -102,15 +102,18 @@ export function Home() {
       {/* Categories Section */}
       <section className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Browse Categories</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 animate-fade-in-left">Browse Categories</h2>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
-            {categories.map((category) => (
+            {categories.map((category, idx) => (
               <Link
                 key={category.name}
                 to={`/marketplace?category=${category.name.toLowerCase()}`}
-                className={`${category.color} rounded-xl p-4 text-center hover:shadow-md transition-shadow`}
+                className={`${category.color} rounded-xl p-4 text-center hover:shadow-xl transition-all duration-300 hover:scale-110 hover:-translate-y-2 list-item animate-fade-in-up`}
+                style={{ animationDelay: `${idx * 0.1}s` }}
               >
-                <span className="text-3xl mb-2 block">{category.icon}</span>
+                <span className="text-3xl mb-2 block transition-transform duration-300 hover:scale-125">
+                  {category.icon}
+                </span>
                 <span className="text-sm font-medium text-gray-700">{category.name}</span>
               </Link>
             ))}
@@ -122,28 +125,28 @@ export function Home() {
       <section className="py-12 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-6 w-6 text-emerald-600" />
+            <div className="flex items-center gap-2 animate-fade-in-left">
+              <TrendingUp className="h-6 w-6 text-emerald-600 animate-bounce-in" />
               <h2 className="text-2xl font-bold text-gray-900">Featured Listings</h2>
             </div>
             <Link 
               to="/marketplace" 
-              className="text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+              className="text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-all duration-300 hover:translate-x-1"
             >
-              View All <ArrowRight className="h-4 w-4" />
+              View All <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {featuredListings.map((listing) => (
+            {featuredListings.map((listing, idx) => (
               <Link key={listing.id} to={`/listing/${listing.id}`}>
-                <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="aspect-square bg-gray-200 relative">
+                <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-2 list-item animate-fade-in-up card-enter" style={{ animationDelay: `${idx * 0.08}s` }}>
+                  <div className="aspect-square bg-gray-200 relative overflow-hidden group">
                     {listing.images?.[0] ? (
                       <img 
                         src={listing.images[0]} 
                         alt={listing.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -151,15 +154,15 @@ export function Home() {
                       </div>
                     )}
                     {listing.is_boosted && (
-                      <Badge className="absolute top-2 left-2 bg-amber-500">
-                        <Zap className="h-3 w-3 mr-1" />
+                      <Badge className="absolute top-2 left-2 bg-amber-500 animate-pulse-glow">
+                        <Zap className="h-3 w-3 mr-1 animate-bounce" />
                         Boosted
                       </Badge>
                     )}
                   </div>
                   <CardContent className="p-3">
-                    <h3 className="font-medium text-gray-900 truncate">{listing.title}</h3>
-                    <p className="text-emerald-600 font-bold">{formatCurrency(listing.price)}</p>
+                    <h3 className="font-medium text-gray-900 truncate group-hover:text-emerald-600 transition-colors duration-300">{listing.title}</h3>
+                    <p className="text-emerald-600 font-bold transition-transform duration-300">{formatCurrency(listing.price)}</p>
                     <p className="text-xs text-gray-500">{formatRelativeTime(listing.created_at)}</p>
                   </CardContent>
                 </Card>
@@ -173,39 +176,39 @@ export function Home() {
       <section className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Star className="h-6 w-6 text-amber-500" />
+            <div className="flex items-center gap-2 animate-fade-in-right">
+              <Star className="h-6 w-6 text-amber-500 animate-bounce-in" />
               <h2 className="text-2xl font-bold text-gray-900">Featured Vendors</h2>
             </div>
             <Link 
               to="/vendors" 
-              className="text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+              className="text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-all duration-300 hover:translate-x-1 hover:gap-2"
             >
-              View All <ArrowRight className="h-4 w-4" />
+              View All <ArrowRight className="h-4 w-4 transition-transform duration-300" />
             </Link>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {featuredVendors.map((vendor) => (
+            {featuredVendors.map((vendor, idx) => (
               <Link key={vendor.id} to={`/vendor/${vendor.id}`}>
-                <Card className="p-4 text-center hover:shadow-lg transition-shadow">
-                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-200 overflow-hidden">
+                <Card className="p-4 text-center hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-2 list-item animate-fade-in-up" style={{ animationDelay: `${idx * 0.1}s` }}>
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-200 overflow-hidden transition-transform duration-300 hover:scale-110 group">
                     {vendor.business_logo ? (
                       <img 
                         src={vendor.business_logo} 
                         alt={vendor.business_name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <Store className="h-8 w-8" />
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 group-hover:text-emerald-600 transition-colors duration-300">
+                        <Store className="h-8 w-8 animate-pulse" />
                       </div>
                     )}
                   </div>
-                  <h3 className="font-medium text-gray-900">{vendor.business_name}</h3>
+                  <h3 className="font-medium text-gray-900 transition-colors duration-300 group-hover:text-emerald-600">{vendor.business_name}</h3>
                   <p className="text-sm text-gray-500">{vendor.category}</p>
                   {vendor.is_verified && (
-                    <Badge variant="secondary" className="mt-2">
+                    <Badge variant="secondary" className="mt-2 animate-pulse-glow">
                       <Shield className="h-3 w-3 mr-1" />
                       Verified
                     </Badge>
@@ -220,16 +223,16 @@ export function Home() {
       {/* How It Works */}
       <section className="py-12 bg-emerald-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">How It Works</h2>
+          <h2 className="text-2xl font-bold text-center text-gray-900 mb-8 animate-fade-in-down">How It Works</h2>
           <div className="grid md:grid-cols-4 gap-6">
             {[
               { step: '1', title: 'Sign Up', desc: 'Create your account with your school email' },
               { step: '2', title: 'List or Browse', desc: 'Post items for sale or find what you need' },
               { step: '3', title: 'Connect', desc: 'Chat with buyers/sellers securely' },
               { step: '4', title: 'Earn Cashback', desc: 'Get 5% back on every payment' },
-            ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xl font-bold">
+            ].map((item, idx) => (
+              <div key={item.step} className="text-center list-item animate-fade-in-up" style={{ animationDelay: `${idx * 0.15}s` }}>
+                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xl font-bold transition-all duration-300 hover:scale-125 hover:shadow-lg hover:shadow-emerald-600/50 hover:bg-emerald-700">
                   {item.step}
                 </div>
                 <h3 className="font-semibold text-gray-900">{item.title}</h3>
@@ -242,16 +245,20 @@ export function Home() {
 
       {/* CTA Section */}
       {!isAuthenticated && (
-        <section className="py-12 bg-emerald-600 text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl font-bold mb-4">Ready to Start?</h2>
-            <p className="text-emerald-100 mb-6 max-w-xl mx-auto">
+        <section className="py-12 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white overflow-hidden relative">
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-500 rounded-full opacity-10 animate-float"></div>
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-400 rounded-full opacity-10 animate-float" style={{ animationDelay: '1.5s' }}></div>
+          </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 animate-fade-in-up">Ready to Start?</h2>
+            <p className="text-emerald-100 mb-6 max-w-xl mx-auto animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
               Join thousands of Al-Hikmah University students buying and selling on campus.
             </p>
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center gap-4 animate-fade-in-up flex-wrap" style={{ animationDelay: '0.4s' }}>
               <Button 
                 size="lg" 
-                className="bg-white text-emerald-600 hover:bg-gray-100"
+                className="bg-white text-emerald-600 hover:bg-gray-100 transition-all duration-300 hover:shadow-lg"
                 onClick={() => window.location.href = '/signup'}
               >
                 Get Started
@@ -259,7 +266,7 @@ export function Home() {
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="border-white text-white hover:bg-emerald-700"
+                className="border-white text-white hover:bg-emerald-700 transition-all duration-300 hover:shadow-lg"
                 onClick={() => window.location.href = '/marketplace'}
               >
                 Browse Marketplace

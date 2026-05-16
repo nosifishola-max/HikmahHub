@@ -1,9 +1,15 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, PRICING } from '@/lib/supabase';
 import type { Vendor, User } from '@/lib/supabase';
 
 export interface VendorWithUser extends Vendor {
   user?: User;
+}
+
+function getApiBaseUrl(): string | null {
+  const base = import.meta.env.VITE_API_URL as string | undefined;
+  if (!base) return null;
+  return String(base).replace(/\/+$/, '');
 }
 
 export function useVendors() {
@@ -15,85 +21,76 @@ export function useVendors() {
     category?: string;
     verified?: boolean;
   }) => {
+    const apiBaseUrl = getApiBaseUrl();
+    if (!apiBaseUrl) {
+      return { data: [], error: 'Missing VITE_API_URL' };
+    }
+
     setLoading(true);
     try {
-      let query = supabase
-        .from('vendors')
-        .select(`
-          *,
-          user:users(*)
-        `)
-        .order('is_featured', { ascending: false })
-        .order('created_at', { ascending: false });
+      const url = new URL('/api/vendors', apiBaseUrl);
+      if (filters?.featured !== undefined) url.searchParams.set('featured', String(filters.featured));
+      if (filters?.category) url.searchParams.set('category', filters.category);
+      if (filters?.verified !== undefined) url.searchParams.set('verified', String(filters.verified));
 
-      if (filters?.featured) {
-        query = query.eq('is_featured', true);
+      const res = await fetch(url.toString());
+      const json: any = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        return { data: [], error: json?.error || `Failed to fetch vendors (${res.status})` };
       }
 
-      if (filters?.category) {
-        query = query.eq('category', filters.category);
-      }
-
-      if (filters?.verified) {
-        query = query.eq('is_verified', true);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      // Filter out expired featured vendors
-      const now = new Date().toISOString();
-      const processedVendors = (data || []).map((vendor: any) => ({
-        ...vendor,
-        is_featured: vendor.is_featured && vendor.featured_expires_at && vendor.featured_expires_at > now,
-      }));
-
-      setVendors(processedVendors);
-      return { data: processedVendors as VendorWithUser[], error: null };
-    } catch (error: any) {
-      return { data: [], error };
+      const data = (json?.data ?? []) as VendorWithUser[];
+      setVendors(data);
+      return { data, error: null as string | null };
+    } catch (e: any) {
+      return { data: [], error: e?.message || 'Failed to fetch vendors' };
     } finally {
       setLoading(false);
     }
   }, []);
 
   const getVendor = useCallback(async (id: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('vendors')
-        .select(`
-          *,
-          user:users(*)
-        `)
-        .eq('id', id)
-        .single();
+    const apiBaseUrl = getApiBaseUrl();
+    if (!apiBaseUrl) return { data: null as VendorWithUser | null, error: 'Missing VITE_API_URL' };
 
-      if (error) throw error;
-      return { data: data as VendorWithUser, error: null };
-    } catch (error: any) {
-      return { data: null, error };
+    try {
+      const url = new URL(`/api/vendors/${encodeURIComponent(id)}`, apiBaseUrl);
+      const res = await fetch(url.toString());
+      const json: any = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        return { data: null as VendorWithUser | null, error: json?.error || `Failed to fetch vendor (${res.status})` };
+      }
+
+      return { data: json?.data as VendorWithUser, error: null as string | null };
+    } catch (e: any) {
+      return { data: null as VendorWithUser | null, error: e?.message || 'Failed to fetch vendor' };
     }
   }, []);
 
   const getVendorByUserId = useCallback(async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('vendors')
-        .select(`
-          *,
-          user:users(*)
-        `)
-        .eq('user_id', userId)
-        .single();
+    const apiBaseUrl = getApiBaseUrl();
+    if (!apiBaseUrl) {
+      return { data: null as VendorWithUser | null, error: 'Missing VITE_API_URL' };
+    }
 
-      if (error) throw error;
-      return { data: data as VendorWithUser, error: null };
-    } catch (error: any) {
-      return { data: null, error };
+    try {
+      const url = new URL(`/api/vendors/by-user/${encodeURIComponent(userId)}`, apiBaseUrl);
+      const res = await fetch(url.toString());
+      const json: any = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        return { data: null as VendorWithUser | null, error: json?.error || `Failed to fetch vendor profile (${res.status})` };
+      }
+
+      return { data: json?.data as VendorWithUser, error: null as string | null };
+    } catch (e: any) {
+      return { data: null as VendorWithUser | null, error: e?.message || 'Failed to fetch vendor profile' };
     }
   }, []);
 
+  // Writes (still Supabase-direct for now)
   const createVendor = useCallback(async (vendorData: {
     business_name: string;
     business_description?: string;
@@ -107,22 +104,50 @@ export function useVendors() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Not authenticated');
 
+      const userId = userData.user.id;
+
+      // Ensure there's a matching public.users row (after switching Supabase projects)
+      const { data: existingUser, error: userSelectError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', userId)
+        .single() as any;
+
+      if (userSelectError) {
+        const insertPayload = {
+          id: userId,
+          email: userData.user.email ?? null,
+          name:
+            (userData.user.user_metadata as any)?.name ||
+            (userData.user.user_metadata as any)?.full_name ||
+            (userData.user.email ? String(userData.user.email).split('@')[0] : 'User'),
+          role: 'student',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const { error: userInsertError } = await supabase
+          .from('users')
+          .insert(insertPayload);
+
+        if (userInsertError) throw userInsertError;
+      }
+
       const { data, error } = await supabase
         .from('vendors')
         .insert({
           ...vendorData,
-          user_id: userData.user.id,
+          user_id: userId,
         })
         .select()
         .single() as any;
 
       if (error) throw error;
 
-      // Update user role
       await supabase
         .from('users')
         .update({ role: 'vendor' })
-        .eq('id', userData.user.id) as any;
+        .eq('id', userId) as any;
 
       return { data: data as Vendor, error: null };
     } catch (error: any) {
@@ -152,7 +177,7 @@ export function useVendors() {
       if (!userData.user) throw new Error('Not authenticated');
 
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+      expiresAt.setDate(expiresAt.getDate() + 7);
 
       const { data, error } = await supabase
         .from('vendors')

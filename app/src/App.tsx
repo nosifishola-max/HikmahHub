@@ -3,28 +3,16 @@ import { Toaster } from '@/components/ui/sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { 
-  Home, 
-  Login, 
-  Signup, 
-  Marketplace, 
-  ListingDetail, 
-  CreateListing,
-  Profile,
-  WalletPage,
-  Messages,
-  Vendors,
-  BecomeVendor,
-  Notifications,
-  AdminDashboard,
-} from '@/pages';
+import { Home, Login, Signup, Marketplace, ListingDetail, CreateListing, Profile, WalletPage, Messages, Vendors, BecomeVendor, Notifications, AdminDashboard } from '@/pages';
 import { AuthCallback } from '@/pages/AuthCallback';
+import TodoApp from './TodoApp';
 
 function AppRoutes() {
   return (
     <Routes>
       {/* Auth Routes */}
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/todos" element={<TodoApp />} />
 
       {/* Public Routes */}
       <Route path="/" element={<Home />} />

@@ -30,7 +30,7 @@ export function Profile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user: currentUser, isAuthenticated, loading: authLoading } = useAuthContext();
-  const { fetchListings } = useListings();
+  const { fetchListings, listings: hookListings } = useListings();
   const { getVendorByUserId } = useVendors();
   
   const [user, setUser] = useState(currentUser);
@@ -40,6 +40,11 @@ export function Profile() {
   const [isOwnProfile, setIsOwnProfile] = useState(!id);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync listings from hook state into local state
+  useEffect(() => {
+    setUserListings(hookListings);
+  }, [hookListings]);
 
   // Update user when currentUser changes from context
   useEffect(() => {
@@ -105,9 +110,8 @@ export function Profile() {
 
   const loadUserData = async (userId: string) => {
     try {
-      // Load user's listings
-      const result: any = await fetchListings({ userId });
-      setUserListings((result?.data) || []);
+      // fetchListings updates hookListings state internally
+      await fetchListings({ userId });
 
       // Load vendor profile if applicable
       const { data: vendorData } = await getVendorByUserId(userId);
@@ -148,8 +152,8 @@ export function Profile() {
     );
   }
 
-  // Show loading while auth is being checked
-  if (authLoading || (loading && !user)) {
+  // Only block on active auth/user-data fetch, not on missing user record
+  if (authLoading || loading) {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 py-12 text-center">
@@ -181,28 +185,28 @@ export function Profile() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-2 sm:px-3 md:px-4 lg:px-6 py-3 sm:py-4 md:py-6">
         {/* Profile Header */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+        <Card className="mb-4 sm:mb-6">
+          <CardContent className="p-3 sm:p-4 md:p-6">
+            <div className="flex flex-col items-center md:flex-row md:items-start gap-3 sm:gap-4 md:gap-6">
               {/* Avatar */}
-              <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
                 {user?.profile_image ? (
                   <img 
                     src={user.profile_image} 
                     alt={user.name || 'User'}
-                    className="w-24 h-24 rounded-full object-cover"
+                    className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full object-cover"
                   />
                 ) : (
-                  <User className="h-12 w-12 text-emerald-600" />
+                  <User className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-emerald-600" />
                 )}
               </div>
 
               {/* Info */}
               <div className="flex-1 text-center md:text-left">
-                <div className="flex items-center justify-center md:justify-start gap-2">
-                  <h1 className="text-2xl font-bold">{user?.name || 'User Profile'}</h1>
+                <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-1 sm:gap-2">
+                  <h1 className="text-lg sm:text-xl md:text-2xl font-bold">{user?.name || 'User Profile'}</h1>
                   {user?.role === 'vendor' && (
                     <Badge className="bg-emerald-600">
                       <Store className="h-3 w-3 mr-1" />
@@ -285,25 +289,27 @@ export function Profile() {
         {/* Referral Section (Own Profile Only) */}
         {isOwnProfile && user?.referral_code && (
           <Card className="mb-6 bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-3">
                 <Gift className="h-5 w-5 text-emerald-600" />
-                <h3 className="font-semibold text-emerald-900">Invite & Earn ₦500</h3>
+                <h3 className="font-semibold text-emerald-900 text-sm sm:text-base">Invite & Earn ₦500</h3>
               </div>
-              <p className="text-sm text-emerald-700 mb-4">
+              <p className="text-xs sm:text-sm text-emerald-700 mb-4">
                 Share your referral link with friends. You'll both get ₦500 when they make their first payment!
               </p>
-              <div className="flex gap-2">
-                <div className="flex-1 bg-white rounded-lg px-4 py-2 text-sm text-gray-600 border">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex-1 bg-white rounded-lg px-2 sm:px-4 py-2 text-xs sm:text-sm text-gray-600 border overflow-hidden overflow-ellipsis">
                   {user.referral_code ? generateReferralLink(user.referral_code) : ''}
                 </div>
                 <Button 
                   variant="outline" 
                   onClick={copyReferralCode}
-                  className={referralCopied ? 'bg-emerald-100 border-emerald-300' : ''}
+                  className={`text-xs sm:text-sm ${referralCopied ? 'bg-emerald-100 border-emerald-300' : ''}`}
+                  size="sm"
                 >
-                  <Copy className="h-4 w-4 mr-2" />
-                  {referralCopied ? 'Copied!' : 'Copy'}
+                  <Copy className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">{referralCopied ? 'Copied!' : 'Copy'}</span>
+                  <span className="sm:hidden">{referralCopied ? '✓' : 'Copy'}</span>
                 </Button>
                 <Button 
                   variant="outline"
@@ -316,16 +322,17 @@ export function Profile() {
                       });
                     }
                   }}
+                  size="sm"
                 >
-                  <Share2 className="h-4 w-4" />
+                  <Share2 className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
-              <div className="mt-4 flex gap-4 text-sm">
-                <div>
+              <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:gap-4 text-xs sm:text-sm">
+                <div className="break-words">
                   <span className="text-gray-500">Total Referrals:</span>{' '}
                   <span className="font-medium">{user?.referral_earnings ? Math.floor(user.referral_earnings / 500) : 0}</span>
                 </div>
-                <div>
+                <div className="break-words">
                   <span className="text-gray-500">Total Earned:</span>{' '}
                   <span className="font-medium text-emerald-600">{formatCurrency(user?.referral_earnings || 0)}</span>
                 </div>
@@ -344,7 +351,7 @@ export function Profile() {
 
           <TabsContent value="listings">
             {userListings.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
                 {userListings.map((listing) => (
                   <Link key={listing.id} to={`/listing/${listing.id}`}>
                     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
@@ -361,9 +368,9 @@ export function Profile() {
                           </div>
                         )}
                       </div>
-                      <CardContent className="p-3">
-                        <h3 className="font-medium text-gray-900 truncate">{listing.title}</h3>
-                        <p className="text-emerald-600 font-bold">{formatCurrency(listing.price)}</p>
+                      <CardContent className="p-2 sm:p-3">
+                        <h3 className="font-medium text-gray-900 truncate text-xs sm:text-sm">{listing.title}</h3>
+                        <p className="text-emerald-600 font-bold text-xs sm:text-base">{formatCurrency(listing.price)}</p>
                         <Badge 
                           variant={listing.status === 'active' ? 'default' : 'secondary'}
                           className="mt-1 text-xs"
@@ -440,7 +447,7 @@ export function Profile() {
             </TabsContent>
           )}
         </Tabs>
-      </div>
+ 88     </div>
     </Layout>
   );
 }
