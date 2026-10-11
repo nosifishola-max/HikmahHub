@@ -1,0 +1,6 @@
+{"cleanUrls":false,
+ "rewrites":[
+  {"source":"/shop/:store/:product","has":[{"type":"header","key":"user-agent","value":".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Googlebot).*"}],"destination":"/api/og?store=:store&product=:product"},
+  {"source":"/shop/:store","has":[{"type":"header","key":"user-agent","value":".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Googlebot).*"}],"destination":"/api/og?store=:store"},
+  {"source":"/((?!api/|assets/|css/|js/|sw\\.js|manifest\\.webmanifest|offline\\.html|robots\\.txt|sitemap\\.xml).*)","destination":"/index.html"}],
+ "headers":[{"source":"/sw.js","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}
