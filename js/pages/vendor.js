@@ -2,6 +2,7 @@ import { sb } from '../supabase.js';
 import { state, loadSession, isVendor } from '../auth.js';
 import { $, $$, esc, money, img, toast, formData, upload, removeFiles, setMeta, fmtDate } from '../util.js';
 import { go } from '../router.js';
+import { computeAchievements, shareAchievement, period } from '../achievements.js';
 import { prepare, brand, saveImage, cleanupFiles, trustedStoreName, currentVersion, regenerate } from '../branding.js';
 
 let tab = 'listings';
@@ -27,9 +28,9 @@ function apply(app) {
 function dash(app) {
   const v = state.vendor;
   app.innerHTML = `<div class="wrap pad"><h1>${esc(v.store_name)}</h1><p><span class="badge ok">✓ Verified</span> <a href="/shop/${esc(v.slug)}" data-link>View public store</a></p>
-  <div class="seg" role="tablist">${['listings', 'new', 'store', 'deals', 'demand'].map(t => `<button data-t="${t}" class="${t === tab ? 'on' : ''}">${{ listings: 'My listings', new: 'Add listing', store: 'Store profile', deals: 'Deals', demand: 'Demand' }[t]}</button>`).join('')}</div><div id="tab"></div></div>`;
+  <div class="seg" role="tablist">${['listings', 'new', 'store', 'deals', 'demand', 'wins'].map(t => `<button data-t="${t}" class="${t === tab ? 'on' : ''}">${{ listings: 'My listings', new: 'Add listing', store: 'Store profile', deals: 'Deals', demand: 'Demand', wins: 'Achievements' }[t]}</button>`).join('')}</div><div id="tab"></div></div>`;
   $$('.seg button').forEach(b => b.onclick = () => { tab = b.dataset.t; dash(app); });
-  ({ listings, new: form, store, deals, demand })[tab]($('#tab'));
+  ({ listings, new: form, store, deals, demand, wins })[tab]($('#tab'));
 }
 
 async function listings(el) {
@@ -116,4 +117,13 @@ async function deals(el) {
 async function demand(el) {
   const { data, error } = await sb.rpc('get_demand_opportunities', { p_limit: 20 });
   el.innerHTML = error ? `<p>${esc(error.message)}</p>` : data.length ? `<div class="panel"><h2>What students are asking for</h2><ol class="rank">${data.map(d => `<li><span class="grow"><b>${esc(d.term)}</b><br><span class="small muted">${d.students_looking} student${d.students_looking > 1 ? 's' : ''} looking${d.max_budget ? ` · budget up to ${money(d.max_budget)}` : ''}</span></span></li>`).join('')}</ol></div>` : `<div class="empty"><h3>No open requests</h3><p class="muted">When students request items, they'll show up here.</p></div>`;
+}
+
+async function wins(el) {
+  el.innerHTML = '<p class="muted">Checking this week\'s activity…</p>';
+  try {
+    const { out, total, me } = await computeAchievements(state.vendor);
+    el.innerHTML = `<p class="small muted">Week of ${esc(period())}. Achievements are calculated automatically from real store views, saves and WhatsApp enquiries. Only stores that meet the criteria get one.</p>` + (out.length ? out.map((a, i) => `<div class="ach"><span class="badge ok">🏆 Earned</span><h3 style="margin-top:6px">${esc(a.title)}</h3><p class="small muted">${esc(a.detail)}</p><div class="row"><button class="btn sm" data-i="${i}" data-m="img">Share achievement</button><button class="btn sm ghost" data-i="${i}" data-m="text">Share as text</button></div></div>`).join('') : `<div class="empty"><h3>No achievements yet this week</h3><p class="muted">${me ? 'Your store has activity but has not reached a ranking threshold yet.' : 'Your store has no recorded activity in the last 7 days.'} Keep your listings fresh and share your store link to get seen.</p></div>`);
+    $$('[data-i]', el).forEach(b => b.onclick = async () => { try { await shareAchievement(out[b.dataset.i], state.vendor, b.dataset.m); } catch (e) { toast(e.message); } });
+  } catch (e) { el.innerHTML = `<p>${esc(e.message)}</p>`; }
 }

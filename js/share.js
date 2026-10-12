@@ -21,11 +21,11 @@ const save = (blob, name) => { const a = document.createElement('a'); a.href = U
 const fileShare = async (blob, name, text, url) => { const f = new File([blob], name, { type: blob.type }); if (navigator.canShare?.({ files: [f] })) { try { await navigator.share({ files: [f], text, url }); return true; } catch (e) { if (e.name === 'AbortError') return true; } } return false; };
 
 export function openShareSheet({ title, price, store, path, imageUrl }) {
-  const url = SITE() + path, text = `${title} – ${money(price)} at ${store} on HikmahHub\n${url}`;
+  const url = SITE() + path, text = price == null ? `Check out ${title} on HikmahHub – products, stores and campus deals.\n${url}` : `${title} – ${money(price)} at ${store} on HikmahHub\n${url}`;
   $('#sheet')?.remove();
   const el = document.createElement('div'); el.id = 'sheet'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Share product');
   el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:flex-end;justify-content:center';
-  el.innerHTML = `<div class="panel" style="width:100%;max-width:480px;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))"><div class="row"><h3 class="grow">Share this product</h3><button class="btn sm ghost" id="x" aria-label="Close">Close</button></div>
+  el.innerHTML = `<div class="panel" style="width:100%;max-width:480px;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))"><div class="row"><h3 class="grow">${price == null ? 'Share this store' : 'Share this product'}</h3><button class="btn sm ghost" id="x" aria-label="Close">Close</button></div>
   <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><a class="btn wa" target="_blank" rel="noopener" href="${waLink('', text).replace('wa.me/', 'wa.me/')}" id="wa">Share on WhatsApp</a>
   <button class="btn ghost" id="cp">Copy link</button>${imageUrl ? '<button class="btn ghost" id="dl">Download product image</button><button class="btn gold" id="pr">Create promo image</button>' : ''}</div><div id="out" style="margin-top:12px"></div></div>`;
   document.body.appendChild(el); const close = () => el.remove();

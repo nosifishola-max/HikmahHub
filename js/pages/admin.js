@@ -3,9 +3,11 @@ import { state, isAdmin } from '../auth.js';
 import { $, $$, esc, money, img, toast, fmtDate, formData, upload, removeFiles, setMeta } from '../util.js';
 import { go } from '../router.js';
 import { regenerate, currentVersion, cleanupFiles } from '../branding.js';
+import { buildCarousel, bannerUrl } from './promos.js';
+import { encode, sha256, put } from '../util.js';
 
 let tab = 'overview';
-const TABS = { overview: 'Overview', vendors: 'Vendors', products: 'Products', deals: 'Deals', events: 'Events', categories: 'Categories', reports: 'Reports', demand: 'Demand', branding: 'Branding', storage: 'Storage' };
+const TABS = { overview: 'Overview', vendors: 'Vendors', products: 'Products', deals: 'Deals', events: 'Events', categories: 'Categories', reports: 'Reports', demand: 'Demand', promotions: 'Promotions', branding: 'Branding', storage: 'Storage' };
 const run = async (p, ok = 'Done') => { const { error } = await p; toast(error ? error.message : ok); return !error; };
 
 export async function admin(app) {
@@ -14,7 +16,7 @@ export async function admin(app) {
   setMeta('Admin', 'HikmahHub administration');
   app.innerHTML = `<div class="wrap pad"><h1>Admin</h1><div class="seg">${Object.entries(TABS).map(([k, l]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div><div id="tab">Loading…</div></div>`;
   $$('.seg button').forEach(b => b.onclick = () => { tab = b.dataset.t; admin(app); });
-  await ({ overview, vendors, products, deals, events, categories, reports, demand, branding, storage })[tab]($('#tab'));
+  await ({ overview, vendors, products, deals, events, categories, reports, demand, promotions, branding, storage })[tab]($('#tab'));
 }
 const again = () => admin($('#app'));
 const table = (head, rows) => rows.length ? `<div class="scroll"><table class="tbl"><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>${rows.join('')}</table></div>` : '<div class="empty">Nothing here yet.</div>';
@@ -109,4 +111,69 @@ async function branding(el) {
     for (const [i, r] of batch.entries()) { $('#bm').textContent = `Regenerating ${i + 1} of ${batch.length}…`; try { await regenerate({ ...r, id: r.image_id }, r.store_id, ver); n++; } catch (e) { f++; await sb.from('product_images').update({ brand_status: 'failed', brand_error: String(e.message || e).slice(0, 300) }).eq('id', r.image_id); } }
     toast(`${n} regenerated, ${f} failed`); again(); };
   $('#bump').onclick = async () => { if (!confirm('Mark every branded image as outdated? You will need to regenerate them in batches.')) return; if (await run(sb.from('site_settings').update({ value: st.version + 1, updated_at: new Date().toISOString() }).eq('key', 'brand_version'), 'Design version increased')) again(); };
+}
+
+// ---------- Promotions ----------
+const livenessOf = p => { const n = Date.now(); if (p.status === 'draft') return ['Draft', '']; if (p.status === 'inactive') return ['Inactive', 'bad']; if (new Date(p.ends_at) <= n) return ['Expired', 'bad']; if (new Date(p.starts_at) > n) return ['Scheduled', '']; return ['Live', 'ok']; };
+const toLocal = d => d ? new Date(new Date(d).getTime() - new Date(d).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+async function bannerBlob(file) { // center-crop to 2:1, 1200x600, WebP <= 200 KB
+  if (file.type.startsWith('video/') || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Banner must be a JPG, PNG or WebP image.');
+  if (file.size > 15 * 1048576) throw new Error('Image is too large (max 15 MB before compression).');
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); const want = 2, have = bmp.width / bmp.height;
+  const sw = have > want ? bmp.height * want : bmp.width, sh = have > want ? bmp.height : bmp.width / want, sx = (bmp.width - sw) / 2, sy = (bmp.height - sh) / 2;
+  for (const w of [1200, 900, 700]) { const c = document.createElement('canvas'); c.width = w; c.height = w / 2; c.getContext('2d').drawImage(bmp, sx, sy, sw, sh, 0, 0, w, w / 2);
+    for (const q of [0.82, 0.7, 0.55]) { let b = await new Promise(r => c.toBlob(r, 'image/webp', q)); if (b && b.type !== 'image/webp') b = await new Promise(r => c.toBlob(r, 'image/jpeg', q)); if (b && b.size <= 200 * 1024) return b; } }
+  throw new Error('Could not compress this banner enough. Try a simpler image.');
+}
+const imageStillUsed = async (path, exceptId) => { if (!path) return true; const { count } = await sb.from('promotions').select('id', { count: 'exact', head: true }).eq('image_path', path).neq('id', exceptId || '00000000-0000-0000-0000-000000000000'); return !!count; };
+function normWhatsApp(v) { v = (v || '').trim(); if (!v) return ''; const m = v.match(/^https?:\/\/(?:wa\.me\/|api\.whatsapp\.com\/send\?phone=)(\d{10,15})/i); const d = m ? m[1] : v.replace(/[\s+()-]/g, ''); if (!/^\d{10,15}$/.test(d)) throw new Error('WhatsApp must be a number with country code (e.g. 2348012345678) or a wa.me link.'); return d; }
+
+async function promotions(el, editId) {
+  const { data, error } = await sb.from('promotions').select('*').order('created_at', { ascending: false }).limit(100);
+  if (error) return el.innerHTML = esc(error.message);
+  const p = editId ? data.find(x => x.id === editId) || {} : {};
+  const start = p.starts_at ? toLocal(p.starts_at) : toLocal(new Date()), end = p.ends_at ? toLocal(p.ends_at) : toLocal(new Date(Date.now() + 7 * 864e5));
+  el.innerHTML = `<form id="f" class="panel" novalidate><h2>${editId ? 'Edit promotion' : 'New promotion'}</h2>
+  <label for="t">Title</label><input id="t" name="title" maxlength="120" placeholder="Enter a clear promotional headline" value="${esc(p.title)}" required>
+  <label for="d">Description</label><textarea id="d" name="description" maxlength="300" placeholder="Briefly explain the offer, event or opportunity">${esc(p.description)}</textarea>
+  <label for="c">CTA text</label><input id="c" name="cta_text" maxlength="30" placeholder="e.g. Explore Now" value="${esc(p.cta_text)}">
+  <label for="u">Destination URL</label><input id="u" name="destination_url" type="url" placeholder="https://example.com" value="${esc(p.destination_url)}">
+  <label for="w">WhatsApp destination</label><input id="w" name="whatsapp" placeholder="Enter the business WhatsApp number or approved WhatsApp link" value="${esc(p.whatsapp_number)}"><div class="small muted">Used only when there is no destination URL.</div>
+  <label for="i">Banner image</label><input id="i" name="image" type="file" accept="image/jpeg,image/png,image/webp"><div class="small muted">Upload a promotional image. It is cropped to 2:1 (e.g. 1200×600) and compressed automatically.</div>
+  <label for="pl">Placement</label><select id="pl" name="placement"><option value="home_hero" ${p.placement !== 'home_section' ? 'selected' : ''}>Homepage banner (top)</option><option value="home_section" ${p.placement === 'home_section' ? 'selected' : ''}>Homepage promotional section</option></select>
+  <label for="cat">Category</label><input id="cat" name="category" list="cats" maxlength="40" placeholder="e.g. Event, Election, Business, Offer" value="${esc(p.category || 'announcement')}"><datalist id="cats"><option>announcement</option><option>election</option><option>business</option><option>event</option><option>training</option><option>offer</option><option>opportunity</option></datalist>
+  <label for="s">Start date and time</label><input id="s" name="starts_at" type="datetime-local" value="${start}" required><label for="e">End date and time</label><input id="e" name="ends_at" type="datetime-local" value="${end}" required>
+  <label for="st">Status</label><select id="st" name="status">${['draft', 'active', 'inactive'].map(s => `<option value="${s}" ${(p.status === s || (!p.status && s === 'draft')) ? 'selected' : ''}>${s[0].toUpperCase() + s.slice(1)}</option>`).join('')}</select>
+  <label class="row" style="font-weight:400"><input type="checkbox" name="is_sponsored" style="width:auto;min-height:0" ${p.is_sponsored ? 'checked' : ''}> Show a "Sponsored" label <span class="small muted">(tick only for paid or sponsored placements, not ordinary announcements)</span></label>
+  <p id="err" class="small" style="color:var(--danger)" role="alert"></p>
+  <div class="row"><button class="btn" id="save">${editId ? 'Save changes' : 'Create promotion'}</button>${editId ? '<button type="button" class="btn ghost" id="cancel">Cancel</button>' : ''}</div></form>
+  <div class="panel"><div class="row"><h3 class="grow">Preview</h3><div class="seg" style="margin:0"><button type="button" class="on" id="pm">Mobile</button><button type="button" id="pd">Desktop</button></div></div><div id="pv" class="pvbox m"></div></div>
+  <div class="panel"><h2>All promotions</h2>${table(['Promotion', 'Window', 'Status', ''], data.map(x => { const [l, k] = livenessOf(x); return `<tr><td><b>${esc(x.title)}</b>${x.is_sponsored ? ' <span class="badge">Sponsored</span>' : ''}<br><span class="small muted">${esc(x.category)} · ${x.placement.replace('_', ' ')}</span></td><td class="small">${fmtDate(x.starts_at)}<br>${fmtDate(x.ends_at)}</td><td><span class="badge ${k}">${l}</span></td>
+  <td><div class="row"><button class="btn sm ghost" data-ed="${x.id}">Edit</button><button class="btn sm ghost" data-tg="${x.id}" data-to="${x.status === 'active' ? 'inactive' : 'active'}">${x.status === 'active' ? 'Deactivate' : 'Activate'}</button><button class="btn sm danger" data-rm="${x.id}">Delete</button></div></td></tr>`; }))}</div>`;
+  const f = $('#f'); let blob = null, previewUrl = p.image_path ? bannerUrl(p.image_path) : null, cur = 'm';
+  const read = () => { const d = formData(f); return { title: d.title.trim(), description: d.description.trim() || null, cta_text: d.cta_text.trim() || null, destination_url: d.destination_url.trim() || null, whatsapp: d.whatsapp, placement: d.placement, category: (d.category || 'announcement').trim(), status: d.status, is_sponsored: !!d.is_sponsored, starts: d.starts_at, ends: d.ends_at }; };
+  const draw = () => { const v = read(); let wa = null; try { wa = normWhatsApp(v.whatsapp) || null; } catch { } const live = { ...v, whatsapp_number: wa, image_path: null };
+    const box = $('#pv'); box.className = 'pvbox ' + cur; buildCarousel(box, [live], { auto: false }); const im = previewUrl; if (im) box.querySelector('.pc-slide')?.insertAdjacentHTML('afterbegin', `<img src="${esc(im)}" alt="">`); };
+  f.addEventListener('input', draw); $('#pm').onclick = () => { cur = 'm'; $('#pm').classList.add('on'); $('#pd').classList.remove('on'); draw(); }; $('#pd').onclick = () => { cur = ''; $('#pd').classList.add('on'); $('#pm').classList.remove('on'); draw(); };
+  $('#i').onchange = async e => { const err = $('#err'); err.textContent = ''; blob = null; const file = e.target.files[0]; if (!file) return; try { blob = await bannerBlob(file); previewUrl = URL.createObjectURL(blob); draw(); } catch (x) { err.textContent = x.message; e.target.value = ''; } };
+  draw(); $('#cancel') && ($('#cancel').onclick = () => promotions(el));
+  f.onsubmit = async e => { e.preventDefault(); const err = $('#err'); err.textContent = ''; const btn = $('#save'); btn.disabled = true;
+    try {
+      const v = read(); if (v.title.length < 3) throw new Error('Title is required (at least 3 characters).');
+      if (v.destination_url) { try { const u = new URL(v.destination_url); if (!['http:', 'https:'].includes(u.protocol)) throw 0; } catch { throw new Error('Destination URL must be a valid http(s) address, e.g. https://example.com'); } }
+      const wa = normWhatsApp(v.whatsapp) || null; if (v.cta_text && !v.destination_url && !wa) throw new Error('A CTA button needs a destination URL or a WhatsApp destination.');
+      if (!v.starts || !v.ends) throw new Error('Choose a start and end date.'); const s = new Date(v.starts), en = new Date(v.ends); if (!(en > s)) throw new Error('The end date must be later than the start date.');
+      if (v.status === 'active' && !p.image_path && !blob) throw new Error('Upload a banner image before activating.');
+      let image_path = p.image_path || null, uploaded = null;
+      if (blob) { const ext = blob.type === 'image/webp' ? 'webp' : 'jpg'; image_path = `banners/${(await sha256(blob)).slice(0, 32)}.${ext}`; await put('promo-banners', image_path, blob); uploaded = image_path; }
+      const row = { title: v.title, description: v.description, cta_text: v.cta_text, destination_url: v.destination_url, whatsapp_number: wa, placement: v.placement, category: v.category, is_sponsored: v.is_sponsored, status: v.status, starts_at: s.toISOString(), ends_at: en.toISOString(), image_path };
+      const r = editId ? await sb.from('promotions').update(row).eq('id', editId) : await sb.from('promotions').insert(row);
+      if (r.error) { if (uploaded && !(await imageStillUsed(uploaded))) await sb.storage.from('promo-banners').remove([uploaded]); throw r.error; }
+      if (blob && p.image_path && p.image_path !== image_path && !(await imageStillUsed(p.image_path, editId))) await sb.storage.from('promo-banners').remove([p.image_path]);
+      toast(editId ? 'Promotion updated' : 'Promotion created'); promotions(el);
+    } catch (x) { err.textContent = x.message || String(x); btn.disabled = false; } };
+  $$('[data-ed]', el).forEach(b => b.onclick = () => { promotions(el, b.dataset.ed); window.scrollTo(0, 0); });
+  $$('[data-tg]', el).forEach(b => b.onclick = async () => { if (await run(sb.from('promotions').update({ status: b.dataset.to }).eq('id', b.dataset.tg), 'Updated')) promotions(el); });
+  $$('[data-rm]', el).forEach(b => b.onclick = async () => { if (!confirm('Delete this promotion? This cannot be undone.')) return; const x = data.find(y => y.id === b.dataset.rm);
+    if (await run(sb.from('promotions').delete().eq('id', x.id), 'Deleted')) { if (x.image_path && !(await imageStillUsed(x.image_path, x.id))) await sb.storage.from('promo-banners').remove([x.image_path]); promotions(el); } });
 }

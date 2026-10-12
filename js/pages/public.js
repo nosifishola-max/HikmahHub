@@ -3,23 +3,25 @@ import { state } from '../auth.js';
 import { $, $$, esc, money, img, fmtDate, toast, waLink, share, setMeta, skeleton, errBox, formData } from '../util.js';
 import { go } from '../router.js';
 import { openShareSheet } from '../share.js';
+import { mountPromos } from './promos.js';
 
-export const card = p => `<a class="card" href="/shop/${esc(p.store_slug)}/${esc(p.slug)}" data-link>
-  <img class="ph" loading="lazy" decoding="async" width="400" height="400" src="${img('product-images', p.image_path, true)}" alt="${esc(p.title)}">
+const discount = p => (p.was && Number(p.was) > Number(p.price) && Number(p.price) >= 0) ? Math.round((1 - Number(p.price) / Number(p.was)) * 100) : 0;
+export const card = (p, extra = '') => { const d = discount(p); return `<div class="card"><a class="cl" href="/shop/${esc(p.store_slug)}/${esc(p.slug)}" data-link>
+  <div class="pw"><img class="ph" loading="lazy" decoding="async" width="400" height="400" src="${img('product-images', p.image_path, true)}" alt="${esc(p.title)}">${p.availability && p.availability !== 'available' ? `<span class="badge bad tag">${esc(p.availability.replace('_', ' '))}</span>` : ''}</div>
   <div class="b"><div class="t">${esc(p.title)}</div><div class="price">${money(p.price)}</div>
-  <div class="small muted">${esc(p.store_name)} ${p.is_verified ? '<span class="badge ok">✓ Verified</span>' : ''}</div>
-  ${p.availability && p.availability !== 'available' ? `<span class="badge bad">${esc(p.availability.replace('_', ' '))}</span>` : ''}</div></a>`;
+  ${d ? `<div class="pr2"><span class="was">${money(p.was)}</span><span class="disc">-${d}%</span></div>` : ''}
+  <div class="store"><span class="sn">${esc(p.store_name)}</span>${p.is_verified ? '<span class="vf" title="Verified Student Vendor" aria-label="Verified Student Vendor">✓</span>' : ''}</div></div></a>${extra}</div>`; };
 const signinCta = () => `<div class="notice"><b>See the full campus marketplace.</b> Sign in with your student account to browse every listing, trends, deals and events. <div class="row" style="margin-top:10px"><a class="btn" href="/login" data-link>Sign in or join</a></div></div>`;
 const emptyReq = q => `<div class="empty"><h3>Can't find what you're looking for?</h3><p class="muted">Tell students and vendors what you need${q ? ` – "${esc(q)}"` : ''}.</p><a class="btn gold" href="/request?title=${encodeURIComponent(q || '')}" data-link>Request it</a></div>`;
 const rankList = (items, line) => items.length ? `<ol class="rank">${items.map((x, i) => `<li><span class="n">${i + 1}</span>${line(x)}</li>`).join('')}</ol>` : '<p class="muted">Rankings appear once students start browsing.</p>';
 
 export async function home(app) {
   setMeta('Campus marketplace', "Discover what's being sold, wanted and happening around your campus.");
-  app.innerHTML = `<section class="hero"><div class="wrap"><h1>Discover what's being sold, wanted and happening on campus</h1>
+  app.innerHTML = `<div class="wrap"><div id="promos"></div></div><section class="hero"><div class="wrap"><h1>Discover what's being sold, wanted and happening on campus</h1>
     <p>Browse student vendors, compare prices, then chat the seller on WhatsApp.</p>
     <form action="/marketplace" role="search"><input name="q" type="search" placeholder="Search phones, food, services…" aria-label="Search"><button class="btn gold">Search</button></form></div></section>
     <div class="wrap"><div class="sec"><div class="chips" id="cats"></div></div><div id="feed">${skeleton(4)}</div></div>`;
-  $('#feed').previousElementSibling; 
+  mountPromos($('#promos'));
   const [{ data: cats }] = await Promise.all([sb.from('categories').select('id,name,slug,parent_id').is('parent_id', null).eq('is_active', true).order('sort_order')]);
   $('#cats').innerHTML = (cats || []).map(c => `<a href="/marketplace?cat=${c.id}" data-link>${esc(c.name)}</a>`).join('');
   try {
@@ -114,7 +116,7 @@ export async function shop(app, [store]) {
   app.innerHTML = `<div class="wrap pad"><div class="shop-h"><img src="${img('vendor-logos', s.logo_path)}" alt=""><div><h1>${esc(s.store_name)}</h1>${s.is_verified ? '<span class="badge ok">✓ Verified Student Vendor</span>' : ''}<div class="small muted">${esc(s.campus_location || '')}</div></div></div>
   <p>${esc(s.description || s.short_description || '')}</p><div class="row">${wa}<button id="sh" class="btn ghost">Share store</button></div>
   ${state.user ? `<div class="sec"><h2>Products</h2>${items.length ? `<div class="grid">${items.map(card).join('')}</div>` : '<p class="muted">No active listings yet.</p>'}</div>` : signinCta()}</div>`;
-  $('#sh').onclick = () => share(s.store_name, '/shop/' + s.slug);
+  $('#sh').onclick = () => openShareSheet({ title: s.store_name, price: null, store: s.store_name, path: '/shop/' + s.slug, imageUrl: null });
   sb.rpc('record_store_view', { p_vendor: s.id });
   if (state.user) $('#wa')?.addEventListener('click', () => sb.rpc('record_whatsapp_click', { p_vendor: s.id }));
 }
@@ -125,8 +127,8 @@ export async function deals(app) {
   app.innerHTML = `<div class="wrap pad"><h1>Campus deals</h1><div id="r">${skeleton(4)}</div></div>`;
   const { data, error } = await sb.from('campus_deals').select('*, products(title,slug,product_images(path,sort_order)), vendors(store_name,slug,is_verified)').eq('status', 'approved').gt('ends_at', new Date().toISOString()).order('ends_at');
   if (error) { $('#r').innerHTML = errBox(error); return; }
-  $('#r').innerHTML = data.length ? `<div class="grid">${data.map(d => { const path = `/shop/${d.vendors.slug}/${d.products.slug}`; const im = d.image_path ? img('event-images', d.image_path, true) : img('product-images', d.products.product_images?.[0]?.path, true);
-    return `<div class="card"><a href="${path}" data-link><img class="ph" loading="lazy" decoding="async" src="${im}" alt="${esc(d.products.title)}"></a><div class="b"><div class="t">${esc(d.products.title)}</div><div class="price">${money(d.deal_price)}<span class="was">${money(d.original_price)}</span></div><div class="small muted">Ends ${fmtDate(d.ends_at)}</div><button class="btn sm ghost" data-share="${path}" data-t="${esc(d.products.title)}" style="margin-top:8px">Share deal</button></div></div>`; }).join('')}</div>` : `<div class="empty"><h3>No live deals right now</h3><p class="muted">Check back soon, new offers are added by student vendors.</p></div>`;
+  const items = data.map(d => ({ slug: d.products.slug, store_slug: d.vendors.slug, title: d.products.title, price: d.deal_price, was: d.original_price, store_name: d.vendors.store_name, is_verified: d.vendors.is_verified, image_path: d.products.product_images?.sort((a, b) => a.sort_order - b.sort_order)[0]?.path, ends: d.ends_at }));
+  $('#r').innerHTML = items.length ? `<div class="grid">${items.map(x => card(x, `<div class="cx"><div class="small muted">Ends ${fmtDate(x.ends)}</div><button class="btn sm ghost" data-share="/shop/${esc(x.store_slug)}/${esc(x.slug)}" data-t="${esc(x.title)}">Share deal</button></div>`)).join('')}</div>` : `<div class="empty"><h3>No live deals right now</h3><p class="muted">Check back soon, new offers are added by student vendors.</p></div>`;
   $$('[data-share]').forEach(b => b.onclick = () => share(b.dataset.t, b.dataset.share));
 }
 
