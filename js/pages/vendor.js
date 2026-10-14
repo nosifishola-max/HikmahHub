@@ -1,32 +1,61 @@
 import { sb } from '../supabase.js';
-import { state, loadSession, isVendor } from '../auth.js';
+import { state, loadSession, isVendor, refreshProfile } from '../auth.js';
+import { onLeave } from '../router.js';
+import { listingForm, closeListingForm } from './listing-form.js';
+import { watch } from '../live.js';
+import { cached, q } from '../cache.js';
 import { $, $$, esc, money, img, toast, formData, upload, removeFiles, setMeta, fmtDate } from '../util.js';
 import { go } from '../router.js';
 import { computeAchievements, shareAchievement, period } from '../achievements.js';
+import { normalizePhone } from '../phone.js';
+import { validateListing, friendlyError } from '../validate.js';
 import { prepare, brand, saveImage, cleanupFiles, trustedStoreName, currentVersion, regenerate } from '../branding.js';
 
 let tab = 'listings';
+let stopV = null, stopL = null, wired = false;
+function wire(app) {   // realtime: my store's approval status, and my listings' statuses (own rows only, enforced by RLS + filters)
+  stopV?.(); stopV = watch('vendors', async () => { const prev = state.vendor?.status; await refreshProfile(); if (state.vendor?.status !== prev && location.pathname === '/vendor') vendor(app); }, `owner_id=eq.${state.user.id}`);
+  if (!wired) { wired = true; onLeave(() => { stopV?.(); stopL?.(); stopV = stopL = null; wired = false; }); }
+}
 export async function vendor(app) {
-  if (!state.user) return go('/login');
+  if (!state.user) return go('/login?next=/vendor'); wire(app);
   setMeta('Vendor', 'Manage your HikmahHub store');
   const v = state.vendor;
   if (!v) return apply(app);
-  if (v.status === 'pending') { app.innerHTML = `<div class="wrap pad"><div class="panel"><h1>Application under review</h1><p>We're reviewing <b>${esc(v.store_name)}</b>. You'll get vendor access here once HikmahHub approves it.</p></div></div>`; return; }
-  if (v.status === 'rejected' || v.status === 'suspended') { app.innerHTML = `<div class="wrap pad"><div class="panel"><h1>Store ${esc(v.status)}</h1><p>${esc(v.rejection_reason || 'Contact HikmahHub for details.')}</p>${v.status === 'rejected' ? '<button id="re" class="btn">Update and reapply</button>' : ''}</div></div>`; $('#re') && ($('#re').onclick = async () => { await sb.from('vendors').update({ status: 'pending' }).eq('id', v.id); await loadSession(); vendor(app); }); return; }
+  if (v.status === 'pending') { app.innerHTML = `<div class="wrap pad"><div class="panel"><h1>Application under review</h1><p>We're reviewing <b>${esc(v.store_name)}</b>. We'll email <b>${esc(state.user.email)}</b> when it is approved or if changes are needed. You can also check this page any time.</p></div></div>`; return; }
+  if (v.status === 'rejected') return apply(app, v);
+  if (v.status === 'suspended') { app.innerHTML = `<div class="wrap pad"><div class="panel"><h1>Store suspended</h1><p>${esc(v.rejection_reason || 'Contact HikmahHub for details.')}</p></div></div>`; return; }
   dash(app);
 }
 
-function apply(app) {
-  app.innerHTML = `<div class="wrap pad" style="max-width:600px"><h1>Open your store</h1><p class="muted">Free for students. HikmahHub reviews every application before your store goes live.</p>
-  <form id="f" class="panel"><label>Store name<input name="store_name" required minlength="2" maxlength="80"></label>
-  <label>WhatsApp number (with country code)<input name="whatsapp_number" required placeholder="2348012345678" inputmode="tel" pattern="\\+?[0-9]{10,15}"></label>
-  <label>What do you sell?<input name="business_category" placeholder="e.g. Phones and accessories"></label><label>Campus location<input name="campus_location"></label>
-  <label>About your store<textarea name="description" maxlength="1000"></textarea></label><button class="btn" style="margin-top:14px">Submit application</button></form></div>`;
-  $('#f').onsubmit = async e => { e.preventDefault(); const { error } = await sb.from('vendors').insert({ ...formData(e.target), owner_id: state.user.id }); if (error) return toast(error.message); toast('Application submitted'); await loadSession(); vendor(app); };
+async function apply(app, ex = null) {
+  let hist = [];
+  if (ex) { const { data } = await sb.from('vendor_review_events').select('status_to,reason,created_at').eq('vendor_id', ex.id).order('id', { ascending: false }).limit(6); hist = data || []; }
+  app.innerHTML = `<div class="wrap pad" style="max-width:600px"><h1>${ex ? 'Update your application' : 'Open your store'}</h1>
+  ${ex ? `<div class="notice bad"><b>Your application was not approved.</b><br>Reason: ${esc(ex.rejection_reason || 'No reason was recorded.')}<br><span class="small">Fix the details below and resubmit. It goes back into the review queue.</span></div>` : '<p class="muted">Free for students. HikmahHub reviews every application before your store goes live.</p>'}
+  <form id="f" class="panel" novalidate><label for="sn">Store name</label><input id="sn" name="store_name" required minlength="2" maxlength="80" value="${esc(ex?.store_name)}">
+  <label for="wa">WhatsApp number</label><input id="wa" name="whatsapp_number" required placeholder="e.g. 08012345678 or +2348012345678" inputmode="tel" autocomplete="tel" value="${esc(ex?.whatsapp_number)}"><div class="small muted">Buyers will contact you on this number. Nigerian numbers can start with 0; other countries start with + and the country code.</div>
+  <label for="bc">What do you sell?</label><input id="bc" name="business_category" placeholder="e.g. Phones and accessories" value="${esc(ex?.business_category)}">
+  <label for="cl">Campus location</label><input id="cl" name="campus_location" value="${esc(ex?.campus_location)}">
+  <label for="ds">About your store</label><textarea id="ds" name="description" maxlength="1000">${esc(ex?.description)}</textarea>
+  <p id="err" class="small" style="color:var(--danger)" role="alert"></p><button class="btn" style="margin-top:6px">${ex ? 'Resubmit application' : 'Submit application'}</button></form>
+  ${hist.length ? `<details class="rv"><summary>Review history</summary><ul>${hist.map(h => `<li class="small">${fmtDate(h.created_at)}: ${esc(h.status_to)}${h.reason ? ` – ${esc(h.reason)}` : ''}</li>`).join('')}</ul></details>` : ''}</div>`;
+  $('#f').onsubmit = async e => {
+    e.preventDefault(); const d = formData(e.target), err = $('#err'), b = e.submitter; err.textContent = '';
+    if ((d.store_name || '').trim().length < 2) { err.textContent = 'Enter your store name (at least 2 characters).'; return; }
+    const ph = normalizePhone(d.whatsapp_number); if (!ph.ok) { err.textContent = ph.error; return; }
+    const row = { store_name: d.store_name.trim(), whatsapp_number: ph.value, business_category: d.business_category.trim() || null, campus_location: d.campus_location.trim() || null, description: d.description.trim() || null };
+    b.disabled = true;
+    const { error } = ex ? await sb.from('vendors').update({ ...row, status: 'pending' }).eq('id', ex.id) : await sb.from('vendors').insert({ ...row, owner_id: state.user.id });
+    if (error) { err.textContent = friendlyError(error); b.disabled = false; return; }
+    toast(ex ? 'Application resubmitted' : 'Application submitted'); await loadSession(); vendor(app);
+  };
 }
 
 function dash(app) {
+  closeListingForm();
   const v = state.vendor;
+  if (!stopL) stopL = watch('products', () => { if (tab === 'listings' && $('#tab')?.isConnected) listings($('#tab')); }, `vendor_id=eq.${v.id}`);
   app.innerHTML = `<div class="wrap pad"><h1>${esc(v.store_name)}</h1><p><span class="badge ok">✓ Verified</span> <a href="/shop/${esc(v.slug)}" data-link>View public store</a></p>
   <div class="seg" role="tablist">${['listings', 'new', 'store', 'deals', 'demand', 'wins'].map(t => `<button data-t="${t}" class="${t === tab ? 'on' : ''}">${{ listings: 'My listings', new: 'Add listing', store: 'Store profile', deals: 'Deals', demand: 'Demand', wins: 'Achievements' }[t]}</button>`).join('')}</div><div id="tab"></div></div>`;
   $$('.seg button').forEach(b => b.onclick = () => { tab = b.dataset.t; dash(app); });
@@ -34,55 +63,23 @@ function dash(app) {
 }
 
 async function listings(el) {
-  const { data, error } = await sb.from('products').select('id,title,price,status,availability,slug,product_images(path)').eq('vendor_id', state.vendor.id).order('created_at', { ascending: false });
-  if (error) return el.innerHTML = `<p>${esc(error.message)}</p>`;
-  el.innerHTML = data.length ? `<div class="scroll"><table class="tbl"><tr><th></th><th>Listing</th><th>Status</th><th>Availability</th><th></th></tr>${data.map(p => `<tr><td><img src="${img('product-images', p.product_images?.[0]?.path, true)}" width="44" height="44" style="object-fit:cover;border-radius:8px" alt=""></td><td>${esc(p.title)}<br><span class="price">${money(p.price)}</span></td>
-  <td><span class="badge ${p.status === 'approved' ? 'ok' : p.status === 'rejected' || p.status === 'hidden' ? 'bad' : ''}">${p.status}</span></td>
-  <td><select data-av="${p.id}">${['available', 'out_of_stock', 'sold', 'unavailable'].map(a => `<option ${a === p.availability ? 'selected' : ''} value="${a}">${a.replace('_', ' ')}</option>`).join('')}</select></td>
-  <td><div class="row"><button class="btn sm ghost" data-ed="${p.id}">Edit</button>${p.status === 'draft' || p.status === 'rejected' ? `<button class="btn sm" data-sub="${p.id}">Submit</button>` : ''}<button class="btn sm danger" data-del="${p.id}">Delete</button></div></td></tr>`).join('')}</table></div>` : `<div class="empty"><h3>No listings yet</h3><p class="muted">Add your first product or service.</p><button class="btn" id="add">Add listing</button></div>`;
+  if (!el.querySelector('table')) el.innerHTML = '<p class="muted small">Loading your listings…</p>';
+  const { data, error } = await sb.from('products').select('id,title,price,status,availability,slug,review_note,pending_changes,category_id,product_images(path)').eq('vendor_id', state.vendor.id).order('created_at', { ascending: false });
+  if (error) return el.innerHTML = `<p>${esc(friendlyError(error))}</p>`;
+  const missing = p => [!p.title && 'title', !p.product_images?.length && 'image', !p.category_id && 'category', p.price == null && 'price'].filter(Boolean);
+  const note = p => p.status === 'rejected' && p.review_note ? `<div class="small" style="color:var(--danger)">Not approved: ${esc(p.review_note)}</div>` : p.status === 'hidden' ? `<div class="small" style="color:var(--danger)">Hidden by HikmahHub${p.review_note ? ': ' + esc(p.review_note) : ''}. Contact us.</div>` : p.review_note && p.status === 'approved' ? `<div class="small muted">${esc(p.review_note)}</div>` : '';
+  el.innerHTML = data.length ? `<div class="scroll"><table class="tbl"><tr><th></th><th>Listing</th><th>Status</th><th>Availability</th><th></th></tr>${data.map(p => `<tr><td><img src="${img('product-images', p.product_images?.[0]?.path, true)}" width="44" height="44" style="object-fit:cover;border-radius:8px" alt=""></td><td>${esc(p.title || 'Untitled draft')}<br><span class="price">${p.price == null ? '<span class="muted small">No price yet</span>' : money(p.price)}</span></td>
+  <td><span class="badge ${p.status === 'approved' ? 'ok' : p.status === 'rejected' || p.status === 'hidden' ? 'bad' : ''}">${p.status}</span>${p.pending_changes ? '<br><span class="badge teal">Changes awaiting review</span>' : ''}${p.status === 'draft' && missing(p).length ? `<br><span class="badge">Incomplete draft</span><div class="small muted">Needs: ${missing(p).join(', ')}</div>` : ''}${note(p)}</td>
+  <td><select data-av="${p.id}" aria-label="Availability">${['available', 'out_of_stock', 'sold', 'unavailable'].map(a => `<option ${a === p.availability ? 'selected' : ''} value="${a}">${a.replace('_', ' ')}</option>`).join('')}</select></td>
+  <td><div class="row"><button class="btn sm ghost" data-ed="${p.id}">Edit</button>${p.status === 'draft' && !missing(p).length ? `<button class="btn sm" data-sub="${p.id}">Submit</button>` : ''}<button class="btn sm danger" data-del="${p.id}">Delete</button></div></td></tr>`).join('')}</table></div>` : `<div class="empty"><h3>No listings yet</h3><p class="muted">Add your first product or service.</p><button class="btn" id="add">Add listing</button></div>`;
   $('#add') && ($('#add').onclick = () => { tab = 'new'; dash($('#app')); });
-  $$('[data-av]').forEach(s => s.onchange = async () => { const { error } = await sb.from('products').update({ availability: s.value }).eq('id', s.dataset.av); toast(error ? error.message : 'Updated'); });
-  $$('[data-sub]').forEach(b => b.onclick = async () => { const { error } = await sb.from('products').update({ status: 'pending' }).eq('id', b.dataset.sub); toast(error ? error.message : 'Submitted for review'); listings(el); });
-  $$('[data-del]').forEach(b => b.onclick = async () => { if (!confirm('Delete this listing?')) return; const { data: im } = await sb.from('product_images').select('path,original_path').eq('product_id', b.dataset.del); const { error } = await sb.from('products').delete().eq('id', b.dataset.del); if (!error) await cleanupFiles((im || []).map(x => x.path), (im || []).map(x => x.original_path)); toast(error ? error.message : 'Deleted'); listings(el); });
-  $$('[data-ed]').forEach(b => b.onclick = () => form($('#tab'), data.find(p => p.id === b.dataset.ed).id));
+  $$('[data-av]').forEach(s => s.onchange = async () => { const { error } = await sb.from('products').update({ availability: s.value }).eq('id', s.dataset.av); toast(error ? friendlyError(error) : 'Updated'); });
+  $$('[data-sub]').forEach(b => b.onclick = async () => { const { error } = await sb.from('products').update({ status: 'pending' }).eq('id', b.dataset.sub); toast(error ? friendlyError(error) : 'Submitted for review'); listings(el); });
+  $$('[data-del]').forEach(b => b.onclick = async () => { if (!confirm('Delete this listing?')) return; const { data: im } = await sb.from('product_images').select('path,original_path').eq('product_id', b.dataset.del); const { error } = await sb.from('products').delete().eq('id', b.dataset.del); if (!error) await cleanupFiles((im || []).map(x => x.path), (im || []).map(x => x.original_path)); toast(error ? friendlyError(error) : 'Deleted'); listings(el); });
+  $$('[data-ed]').forEach(b => b.onclick = () => form($('#tab'), b.dataset.ed));
 }
 
-async function form(el, editId) {
-  const [{ data: cats }, ex, { data: ims }] = await Promise.all([sb.from('categories').select('id,name,parent_id').eq('is_active', true).order('name'), editId ? sb.from('products').select('*').eq('id', editId).single() : { data: {} }, editId ? sb.from('product_images').select('id,path,original_path').eq('product_id', editId).order('sort_order') : { data: [] }]);
-  const p = ex.data || {}; const have = ims || [];
-  el.innerHTML = `<form id="f" class="panel"><h2>${editId ? 'Edit listing' : 'Add listing'}</h2><label>Title<input name="title" required minlength="2" maxlength="120" value="${esc(p.title)}"></label>
-  <label>Type<select name="listing_type"><option value="product" ${p.listing_type !== 'service' ? 'selected' : ''}>Product</option><option value="service" ${p.listing_type === 'service' ? 'selected' : ''}>Service</option></select></label>
-  <label>Category<select name="category_id" required><option value="">Select</option>${(cats || []).map(c => `<option value="${c.id}" ${c.id === p.category_id ? 'selected' : ''}>${c.parent_id ? '— ' : ''}${esc(c.name)}</option>`).join('')}</select></label>
-  <label>Price (₦)<input name="price" type="number" min="0" step="1" required inputmode="numeric" value="${p.price ?? ''}"></label>
-  <label>Condition<select name="condition"><option value="new">New</option><option value="used" ${p.condition === 'used' ? 'selected' : ''}>Used</option><option value="not_applicable" ${p.condition === 'not_applicable' ? 'selected' : ''}>Not applicable (service)</option></select></label>
-  <label>Location<input name="location" value="${esc(p.location)}"></label><label>Description<textarea name="description" maxlength="5000">${esc(p.description)}</textarea></label>
-  ${have.length ? `<div class="row">${have.map(i => `<div style="text-align:center"><img src="${img('product-images', i.path, true)}" width="64" height="64" style="object-fit:cover;border-radius:8px" alt=""><br><button type="button" class="btn sm danger" data-rm="${i.id}" data-path="${esc(i.path)}" data-orig="${esc(i.original_path || '')}">Remove</button></div>`).join('')}</div>` : ''}
-  <label>Add images (${5 - have.length} more allowed; photos are compressed automatically)<input name="files" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
-  <div id="prev" class="row" aria-live="polite"></div>
-  <div class="row" style="margin-top:14px"><button class="btn" name="go" value="pending">Submit for review</button><button class="btn ghost" name="go" value="draft" formnovalidate>Save draft</button></div></form>`;
-  $$('[data-rm]', el).forEach(b => b.onclick = async () => { const { error } = await sb.from('product_images').delete().eq('id', b.dataset.rm); if (error) return toast(error.message); await cleanupFiles([b.dataset.path], [b.dataset.orig]); toast('Image removed'); form(el, editId); });
-  let procs = [];
-  $('#f [name=files]').onchange = async ev => {
-    const out = $('#prev'); procs.forEach(x => x.url && URL.revokeObjectURL(x.url)); procs = []; out.innerHTML = '';
-    const list = [...ev.target.files].filter(f => f.size).slice(0, 5 - have.length); if (!list.length) return;
-    try {
-      const [store, ver] = await Promise.all([trustedStoreName(state.vendor.id), currentVersion()]);
-      for (const [i, f] of list.entries()) { out.textContent = `Processing image ${i + 1} of ${list.length}…`; const prep = await prepare(f); let url = null; try { url = (await brand(prep, state.vendor.id, store, ver)).previewUrl; } catch { } procs.push({ prep, url }); }
-      out.innerHTML = procs.map(x => x.url ? `<img src="${x.url}" alt="Branded preview" width="96" height="96" style="object-fit:cover;border-radius:8px">` : '<span class="badge bad">Preview unavailable</span>').join('') + '<div class="small muted" style="width:100%">HikmahHub and your store name are added automatically.</div>';
-    } catch (err) { out.textContent = err.message; ev.target.value = ''; procs = []; }
-  };
-  $('#f').onsubmit = async e => { e.preventDefault(); const btn = e.submitter; const d = formData(e.target); const files = [...e.target.files.files].filter(f => f.size).slice(0, 5 - have.length); btn.disabled = true;
-    try {
-      const row = { title: d.title, listing_type: d.listing_type, category_id: d.category_id, price: d.price, condition: d.condition, location: d.location || null, description: d.description || null };
-      let id = editId;
-      if (editId) { const { error } = await sb.from('products').update({ ...row, status: btn.value }).eq('id', id); if (error) throw error; }
-      else { const { data, error } = await sb.from('products').insert({ ...row, vendor_id: state.vendor.id, status: btn.value }).select('id').single(); if (error) throw error; id = data.id; }
-      const ver = await currentVersion(); let failed = 0;
-      for (const [i, pr] of procs.entries()) { btn.textContent = `Uploading image ${i + 1} of ${procs.length}…`; try { await saveImage(state.vendor.id, id, have.length + i, pr.prep, ver, d.title); } catch { failed++; } }
-      if (failed) { toast(`Listing saved, but ${failed} image(s) failed. Edit the listing to add them again.`); tab = 'listings'; dash($('#app')); return; }
-      toast(btn.value === 'draft' ? 'Draft saved' : 'Submitted for review'); tab = 'listings'; dash($('#app'));
-    } catch (err) { toast(err.message); btn.disabled = false; } };
-}
+function form(el, editId) { return listingForm(el, editId, () => { tab = 'listings'; dash($('#app')); }); }   // autosave form lives in listing-form.js
 
 async function refreshBrand() {
   const m = $('#rbm'), say = t => { if (m) m.textContent = t; }; const ver = await currentVersion();
@@ -93,12 +90,12 @@ async function refreshBrand() {
 function store(el) {
   const v = state.vendor;
   el.innerHTML = `<form id="f" class="panel"><h2>Store profile</h2><label>Store logo<input name="logo" type="file" accept="image/jpeg,image/png,image/webp"></label>
-  <label>Store name (your link stays /shop/${esc(v.slug)})<input name="store_name" value="${esc(v.store_name)}" required></label><label>WhatsApp number<input name="whatsapp_number" value="${esc(v.whatsapp_number)}" required pattern="\\+?[0-9]{10,15}"></label>
+  <label>Store name (your link stays /shop/${esc(v.slug)})<input name="store_name" value="${esc(v.store_name)}" required></label><label>WhatsApp number<input name="whatsapp_number" value="${esc(v.whatsapp_number)}" required inputmode="tel" placeholder="e.g. 08012345678 or +2348012345678"></label>
   <label>Campus location<input name="campus_location" value="${esc(v.campus_location)}"></label><label>About<textarea name="description">${esc(v.description)}</textarea></label>
   <label>Instagram (optional)<input name="instagram" value="${esc(v.social_links?.instagram)}"></label><button class="btn" style="margin-top:14px">Save store</button></form>
   <div class="panel"><h3>Branded images</h3><p class="small muted">Product photos show HikmahHub and your store name. If you rename your store, refresh them here (done for you automatically after a rename).</p><button type="button" class="btn ghost" id="rb">Refresh branded images</button><p id="rbm" class="small" aria-live="polite"></p></div>`;
   $('#rb').onclick = refreshBrand;
-  $('#f').onsubmit = async e => { e.preventDefault(); const d = formData(e.target); try { const upd = { store_name: d.store_name, whatsapp_number: d.whatsapp_number, campus_location: d.campus_location || null, description: d.description || null, social_links: { instagram: d.instagram || null } };
+  $('#f').onsubmit = async e => { e.preventDefault(); const d = formData(e.target); try { const ph = normalizePhone(d.whatsapp_number); if (!ph.ok) return toast(ph.error); const upd = { store_name: d.store_name, whatsapp_number: ph.value, campus_location: d.campus_location || null, description: d.description || null, social_links: { instagram: d.instagram || null } };
     const f = e.target.logo.files[0]; if (f) { upd.logo_path = await upload('vendor-logos', v.id, f); }
     const { error } = await sb.from('vendors').update(upd).eq('id', v.id); if (error) throw error; if (upd.logo_path && v.logo_path && v.logo_path !== upd.logo_path) await removeFiles('vendor-logos', [v.logo_path]); await loadSession(); toast('Store updated'); if (d.store_name !== v.store_name) refreshBrand();  } catch (err) { toast(err.message); } };
 }

@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { sb } from './supabase.js';
+import { waDigits } from './phone.js';
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -8,7 +9,7 @@ export const thumbPath = p => p.replace(/(\.\w+)$/, '_t$1');
 export const img = (bucket, path, thumb = false) => path ? sb.storage.from(bucket).getPublicUrl(thumb ? thumbPath(path) : path).data.publicUrl : '/assets/icons/icon-192.png';
 export const fmtDate = d => new Date(d).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
 export function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2800); }
-export const waLink = (num, msg) => `https://wa.me/${String(num).replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
+export const waLink = (num, msg) => `https://wa.me/${waDigits(num)}?text=${encodeURIComponent(msg)}`;
 export const hhWhatsApp = msg => waLink(CONFIG.HIKMAHHUB_WHATSAPP, msg);
 export async function share(title, path) {
   const url = location.origin + path;

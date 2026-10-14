@@ -1,9 +1,12 @@
 import { sb } from '../supabase.js';
-import { state } from '../auth.js';
+import { state, scope } from '../auth.js';
 import { $, $$, esc, money, img, fmtDate, toast, waLink, share, setMeta, skeleton, errBox, formData } from '../util.js';
-import { go } from '../router.js';
-import { openShareSheet } from '../share.js';
+import { go, current, onLeave } from '../router.js';
 import { mountPromos } from './promos.js';
+import { cached, invalidate, q } from '../cache.js';
+import { watch, onResume } from '../live.js';
+const openShareSheet = async o => (await import('../share.js')).openShareSheet(o);   // share code loads only when someone taps Share
+const getCats = () => cached('cats:top', 600000, () => q(sb.from('categories').select('id,name,slug,parent_id').is('parent_id', null).eq('is_active', true).order('sort_order')));
 
 const discount = p => (p.was && Number(p.was) > Number(p.price) && Number(p.price) >= 0) ? Math.round((1 - Number(p.price) / Number(p.was)) * 100) : 0;
 export const card = (p, extra = '') => { const d = discount(p); return `<div class="card"><a class="cl" href="/shop/${esc(p.store_slug)}/${esc(p.slug)}" data-link>
@@ -15,57 +18,58 @@ const signinCta = () => `<div class="notice"><b>See the full campus marketplace.
 const emptyReq = q => `<div class="empty"><h3>Can't find what you're looking for?</h3><p class="muted">Tell students and vendors what you need${q ? ` – "${esc(q)}"` : ''}.</p><a class="btn gold" href="/request?title=${encodeURIComponent(q || '')}" data-link>Request it</a></div>`;
 const rankList = (items, line) => items.length ? `<ol class="rank">${items.map((x, i) => `<li><span class="n">${i + 1}</span>${line(x)}</li>`).join('')}</ol>` : '<p class="muted">Rankings appear once students start browsing.</p>';
 
+const feedHtml = (tr, latest, tv) => `<div class="sec"><div class="head"><h2>HikmahHub Weekly</h2><a href="/trending" data-link>See all</a></div>
+  <div style="display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))"><div class="panel"><h3>Top vendors</h3>${rankList(tv || [], v => `<a href="/shop/${esc(v.slug)}" data-link>${esc(v.store_name)}</a>`)}</div>
+  <div class="panel"><h3>Trending products</h3>${rankList(tr || [], t => `<a href="/shop/${esc(t.store_slug)}/${esc(t.slug)}" data-link>${esc(t.title)}</a>`)}</div></div></div>
+  <div class="sec"><div class="head"><h2>Latest listings</h2><a href="/marketplace" data-link>Browse all</a></div>${latest?.length ? `<div class="grid">${latest.map(x => card(x)).join('')}</div>` : emptyReq('')}</div>`;
+const anonHtml = data => signinCta() + `<div class="sec"><div class="head"><h2>Featured on HikmahHub</h2></div>${data?.length ? `<div class="grid">${data.map(x => card(x)).join('')}</div>` : '<p class="muted">Featured listings will show here.</p>'}</div>
+  <div class="sec"><div class="panel"><h3>Sell on campus</h3><p class="muted">Student with something to sell? Create an account, then apply to open your free store.</p><a class="btn ghost" href="/login?mode=signup" data-link>Create account</a></div></div>`;
+
 export async function home(app) {
-  setMeta('Campus marketplace', "Discover what's being sold, wanted and happening around your campus.");
+  setMeta('Campus marketplace', "Discover what's being sold, wanted and happening around your campus."); const t = current(), sc = scope();
   app.innerHTML = `<div class="wrap"><div id="promos"></div></div><section class="hero"><div class="wrap"><h1>Discover what's being sold, wanted and happening on campus</h1>
     <p>Browse student vendors, compare prices, then chat the seller on WhatsApp.</p>
     <form action="/marketplace" role="search"><input name="q" type="search" placeholder="Search phones, food, services…" aria-label="Search"><button class="btn gold">Search</button></form></div></section>
     <div class="wrap"><div class="sec"><div class="chips" id="cats"></div></div><div id="feed">${skeleton(4)}</div></div>`;
   mountPromos($('#promos'));
-  const [{ data: cats }] = await Promise.all([sb.from('categories').select('id,name,slug,parent_id').is('parent_id', null).eq('is_active', true).order('sort_order')]);
-  $('#cats').innerHTML = (cats || []).map(c => `<a href="/marketplace?cat=${c.id}" data-link>${esc(c.name)}</a>`).join('');
-  try {
-    if (!state.user) {
-      const { data } = await sb.from('public_product_previews').select('*');
-      $('#feed').innerHTML = signinCta() + `<div class="sec"><div class="head"><h2>Featured on HikmahHub</h2></div>${data?.length ? `<div class="grid">${data.map(card).join('')}</div>` : '<p class="muted">Featured listings will show here.</p>'}</div>
-      <div class="sec"><div class="panel"><h3>Sell on campus</h3><p class="muted">Student with something to sell? Create an account, then apply to open your free store.</p><a class="btn ghost" href="/login?mode=signup" data-link>Create account</a></div></div>`;
-      return;
-    }
-    const [tr, latest, tv] = await Promise.all([sb.rpc('get_trending_products', { p_days: 7, p_limit: 4 }), sb.rpc('search_products', { p_limit: 8 }), sb.rpc('get_top_vendors', { p_days: 7, p_limit: 3 })]);
-    const trending = (tr.data || []).map(t => ({ ...t, store_slug: t.store_slug, price: null }));
-    $('#feed').innerHTML = `<div class="sec"><div class="head"><h2>HikmahHub Weekly</h2><a href="/trending" data-link>See all</a></div>
-      <div class="grid2" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))"><div class="panel"><h3>Top vendors</h3>${rankList(tv.data || [], v => `<a href="/shop/${esc(v.slug)}" data-link>${esc(v.store_name)}</a>`)}</div>
-      <div class="panel"><h3>Trending products</h3>${rankList(trending, t => `<a href="/shop/${esc(t.store_slug)}/${esc(t.slug)}" data-link>${esc(t.title)}</a>`)}</div></div></div>
-      <div class="sec"><div class="head"><h2>Latest listings</h2><a href="/marketplace" data-link>Browse all</a></div>${latest.data?.length ? `<div class="grid">${latest.data.map(card).join('')}</div>` : emptyReq('')}</div>`;
-  } catch (e) { $('#feed').innerHTML = errBox(e); }
+  getCats().then(cats => { if (t === current() && $('#cats')) $('#cats').innerHTML = cats.map(c => `<a href="/marketplace?cat=${c.id}" data-link>${esc(c.name)}</a>`).join(''); }).catch(() => { });   // never blocks the feed
+  const load = () => state.user
+    ? Promise.all([cached(`home:tr:${sc}`, 120000, () => q(sb.rpc('get_trending_products', { p_days: 7, p_limit: 4 }))), cached(`home:latest:${sc}`, 60000, () => q(sb.rpc('search_products', { p_limit: 8 }))), cached(`home:tv:${sc}`, 120000, () => q(sb.rpc('get_top_vendors', { p_days: 7, p_limit: 3 })))])   // one parallel round
+    : cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*')));
+  const draw = async () => { try { const r = await load(); if (t !== current()) return; $('#feed').innerHTML = state.user ? feedHtml(...r) : anonHtml(r); } catch (e) { if (t === current() && !$('#feed .grid')) $('#feed').innerHTML = errBox(e); } };
+  await draw();
+  if (state.user) { onLeave(watch('products', () => { invalidate('home:'); invalidate('mk:'); draw(); })); onLeave(onResume(draw)); }
 }
 
 export async function marketplace(app, _, qs) {
-  setMeta('Marketplace', 'Browse products and services from verified student vendors.');
+  setMeta('Marketplace', 'Browse products and services from verified student vendors.'); const t = current(), sc = scope();
   const f = { q: qs.get('q') || '', cat: qs.get('cat') || '', type: qs.get('type') || '', sort: qs.get('sort') || 'newest' };
-  const { data: cats } = await sb.from('categories').select('id,name').is('parent_id', null).eq('is_active', true).order('sort_order');
+  const catOpts = cats => `<option value="">All categories</option>${(cats || []).map(c => `<option value="${c.id}" ${c.id === f.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}`;
   app.innerHTML = `<div class="wrap pad"><h1>Marketplace</h1>
     <form id="f" class="row" role="search"><input class="grow" name="q" type="search" value="${esc(f.q)}" placeholder="Search products, services, stores" aria-label="Search">
     <button class="btn">Search</button></form>
-    <div class="row" style="margin:10px 0"><select id="cat" aria-label="Category"><option value="">All categories</option>${(cats || []).map(c => `<option value="${c.id}" ${c.id === f.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+    <div class="row" style="margin:8px 0"><select id="cat" aria-label="Category">${catOpts([])}</select>
     <select id="type" aria-label="Type"><option value="">Products and services</option><option value="product" ${f.type === 'product' ? 'selected' : ''}>Products</option><option value="service" ${f.type === 'service' ? 'selected' : ''}>Services</option></select>
     <select id="sort" aria-label="Sort"><option value="newest">Newest</option><option value="oldest" ${f.sort === 'oldest' ? 'selected' : ''}>Oldest</option><option value="price_asc" ${f.sort === 'price_asc' ? 'selected' : ''}>Price: low to high</option><option value="price_desc" ${f.sort === 'price_desc' ? 'selected' : ''}>Price: high to low</option></select></div>
-    <div id="res">${skeleton(8)}</div><div class="row" style="justify-content:center;margin-top:14px"><button id="more" class="btn ghost" hidden>Load more</button></div></div>`;
+    <div id="newpill" hidden style="position:sticky;top:54px;z-index:5;text-align:center;margin-bottom:6px"><button class="btn sm gold" id="np">New listings available. Tap to refresh</button></div>
+    <div id="res">${skeleton(8)}</div><div class="row" style="justify-content:center;margin-top:10px"><button id="more" class="btn ghost" hidden>Load more</button></div></div>`;
+  getCats().then(c => { if (t === current() && $('#cat')) $('#cat').innerHTML = catOpts(c); }).catch(() => { });   // the list renders without waiting for categories
   const apply = () => go(`/marketplace?${new URLSearchParams({ q: $('#f [name=q]').value.trim(), cat: $('#cat').value, type: $('#type').value, sort: $('#sort').value })}`);
   $('#f').onsubmit = e => { e.preventDefault(); apply(); }; ['cat', 'type', 'sort'].forEach(i => $('#' + i).onchange = apply);
-  if (!state.user) {
-    const { data } = await sb.from('public_product_previews').select('*');
-    $('#res').innerHTML = signinCta() + (data?.length ? `<div class="grid">${data.map(card).join('')}</div>` : ''); return;
-  }
+  if (!state.user) { try { const data = await cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*'))); if (t === current()) $('#res').innerHTML = signinCta() + (data?.length ? `<div class="grid">${data.map(x => card(x)).join('')}</div>` : ''); } catch (e) { if (t === current()) $('#res').innerHTML = errBox(e); } return; }
   let off = 0; const size = 24;
+  const page = o => q(sb.rpc('search_products', { p_q: f.q || null, p_category: f.cat || null, p_type: f.type || null, p_sort: f.sort, p_limit: size, p_offset: o }));
   const load = async first => {
-    const { data, error } = await sb.rpc('search_products', { p_q: f.q || null, p_category: f.cat || null, p_type: f.type || null, p_sort: f.sort, p_limit: size, p_offset: off });
-    if (error) { $('#res').innerHTML = errBox(error); return; }
-    if (first) { $('#res').innerHTML = data.length ? '<div class="grid" id="g"></div>' : emptyReq(f.q); if (f.q) sb.rpc('record_search', { p_query: f.q, p_results: data.length }); }
-    if (data.length) $('#g').insertAdjacentHTML('beforeend', data.map(card).join(''));
-    $('#more').hidden = data.length < size; off += size;
+    try {
+      const data = first ? await cached(`mk:${sc}:${qs.toString()}`, 30000, async () => { const d = await page(0); if (f.q) sb.rpc('record_search', { p_query: f.q, p_results: d.length }); return d; }) : await page(off);   // search is only recorded on real network fetches
+      if (t !== current()) return;
+      if (first) { $('#res').innerHTML = data.length ? '<div class="grid" id="g"></div>' : emptyReq(f.q); $('#newpill').hidden = true; }
+      if (data.length) $('#g').insertAdjacentHTML('beforeend', data.map(x => card(x)).join(''));
+      $('#more').hidden = data.length < size; off += size;
+    } catch (e) { if (t === current() && first) $('#res').innerHTML = errBox(e); else toast('Could not load more. Check your connection.'); }
   };
-  $('#more').onclick = () => load(false); load(true);
+  $('#more').onclick = () => load(false); $('#np').onclick = () => { off = 0; load(true); }; await load(true);
+  onLeave(watch('products', () => { invalidate('mk:'); invalidate('home:'); if (window.scrollY < 300 && off <= size) { off = 0; load(true); } else $('#newpill') && ($('#newpill').hidden = false); }));   // never yanks the list while you're scrolling
 }
 
 export async function product(app, [store, slug]) {
@@ -108,7 +112,7 @@ export async function shop(app, [store]) {
   let s, items = [];
   if (state.user) {
     const { data } = await sb.from('vendors').select('*').eq('slug', store).eq('status', 'approved').maybeSingle(); s = data;
-    if (s) { const r = await sb.rpc('search_products', { p_q: s.store_name, p_limit: 60 }); items = (r.data || []).filter(x => x.store_slug === s.slug); }
+    if (s) { const r = await cached(`shop:${scope()}:${s.slug}`, 60000, () => q(sb.rpc('search_products', { p_q: s.store_name, p_limit: 60 }))); items = (r || []).filter(x => x.store_slug === s.slug); }
   } else { const { data } = await sb.rpc('get_shared_store', { p_store_slug: store }); s = data?.[0]; }
   if (!s) { app.innerHTML = `<div class="wrap pad"><div class="empty"><h3>Store not found</h3><a class="btn" href="/marketplace" data-link>Browse marketplace</a></div></div>`; return; }
   setMeta(s.store_name, s.description || s.short_description || 'Student store on HikmahHub', s.logo_path ? img('vendor-logos', s.logo_path) : undefined);
@@ -124,19 +128,23 @@ export async function shop(app, [store]) {
 export async function deals(app) {
   setMeta('Campus deals', 'Limited-time offers from verified student vendors.');
   if (!state.user) { app.innerHTML = `<div class="wrap pad"><h1>Campus deals</h1>${signinCta()}</div>`; return; }
-  app.innerHTML = `<div class="wrap pad"><h1>Campus deals</h1><div id="r">${skeleton(4)}</div></div>`;
-  const { data, error } = await sb.from('campus_deals').select('*, products(title,slug,product_images(path,sort_order)), vendors(store_name,slug,is_verified)').eq('status', 'approved').gt('ends_at', new Date().toISOString()).order('ends_at');
-  if (error) { $('#r').innerHTML = errBox(error); return; }
-  const items = data.map(d => ({ slug: d.products.slug, store_slug: d.vendors.slug, title: d.products.title, price: d.deal_price, was: d.original_price, store_name: d.vendors.store_name, is_verified: d.vendors.is_verified, image_path: d.products.product_images?.sort((a, b) => a.sort_order - b.sort_order)[0]?.path, ends: d.ends_at }));
-  $('#r').innerHTML = items.length ? `<div class="grid">${items.map(x => card(x, `<div class="cx"><div class="small muted">Ends ${fmtDate(x.ends)}</div><button class="btn sm ghost" data-share="/shop/${esc(x.store_slug)}/${esc(x.slug)}" data-t="${esc(x.title)}">Share deal</button></div>`)).join('')}</div>` : `<div class="empty"><h3>No live deals right now</h3><p class="muted">Check back soon, new offers are added by student vendors.</p></div>`;
-  $$('[data-share]').forEach(b => b.onclick = () => share(b.dataset.t, b.dataset.share));
+  const t = current(); app.innerHTML = `<div class="wrap pad"><h1>Campus deals</h1><div id="r">${skeleton(4)}</div></div>`;
+  const draw = data => {
+    const items = data.filter(d => new Date(d.ends_at) > Date.now()).map(d => ({ slug: d.products.slug, store_slug: d.vendors.slug, title: d.products.title, price: d.deal_price, was: d.original_price, store_name: d.vendors.store_name, is_verified: d.vendors.is_verified, image_path: d.products.product_images?.sort((a, b) => a.sort_order - b.sort_order)[0]?.path, ends: d.ends_at }));   // expired deals drop out even from cached data
+    $('#r').innerHTML = items.length ? `<div class="grid">${items.map(x => card(x, `<div class="cx"><div class="small muted">Ends ${fmtDate(x.ends)}</div><button class="btn sm ghost" data-share="/shop/${esc(x.store_slug)}/${esc(x.slug)}" data-t="${esc(x.title)}">Share deal</button></div>`)).join('')}</div>` : `<div class="empty"><h3>No live deals right now</h3><p class="muted">Check back soon, new offers are added by student vendors.</p></div>`;
+    $$('[data-share]').forEach(b => b.onclick = () => share(b.dataset.t, b.dataset.share));
+  };
+  const load = async () => { try { const data = await cached(`deals:${scope()}`, 60000, () => q(sb.from('campus_deals').select('id,deal_price,original_price,ends_at,products(title,slug,product_images(path,sort_order)),vendors(store_name,slug,is_verified)').eq('status', 'approved').gt('ends_at', new Date().toISOString()).order('ends_at').limit(40))); if (t === current()) draw(data); } catch (e) { if (t === current() && !$('#r .grid')) $('#r').innerHTML = errBox(e); } };
+  await load(); onLeave(watch('campus_deals', () => { invalidate('deals:'); load(); })); onLeave(onResume(load));
 }
 
 export async function events(app) {
   setMeta('Campus events', 'Seminars, competitions, trainings and more around Al-Hikmah University.');
   if (!state.user) { app.innerHTML = `<div class="wrap pad"><h1>Campus events</h1>${signinCta()}</div>`; return; }
-  const { data, error } = await sb.from('events').select('*').eq('status', 'published').gte('starts_at', new Date(Date.now() - 864e5).toISOString()).order('starts_at');
-  app.innerHTML = `<div class="wrap pad"><h1>Campus events</h1>${error ? errBox(error) : data.length ? `<div class="grid">${data.map(e => `<a class="card" href="/events/${esc(e.slug)}" data-link><img class="ph" loading="lazy" decoding="async" src="${img('event-images', e.image_path, true)}" alt=""><div class="b"><div class="t">${esc(e.title)}</div><div class="small muted">${fmtDate(e.starts_at)}</div><div class="small muted">${esc(e.location || '')}</div></div></a>`).join('')}</div>` : `<div class="empty"><h3>No upcoming events</h3><p class="muted">Events published by HikmahHub will show up here.</p></div>`}</div>`;
+  const t = current(); app.innerHTML = `<div class="wrap pad"><h1>Campus events</h1><div id="r">${skeleton(4)}</div></div>`;
+  const draw = data => { $('#r').innerHTML = data.length ? `<div class="grid">${data.map(e => `<a class="card" href="/events/${esc(e.slug)}" data-link><img class="ph" loading="lazy" decoding="async" src="${img('event-images', e.image_path, true)}" alt=""><div class="b"><div class="t">${esc(e.title)}</div><div class="small muted">${fmtDate(e.starts_at)}</div><div class="small muted">${esc(e.location || '')}</div></div></a>`).join('')}</div>` : `<div class="empty"><h3>No upcoming events</h3><p class="muted">Events published by HikmahHub will show up here.</p></div>`; };
+  const load = async () => { try { const data = await cached(`events:${scope()}`, 60000, () => q(sb.from('events').select('id,title,slug,starts_at,location,image_path').eq('status', 'published').gte('starts_at', new Date(Date.now() - 864e5).toISOString()).order('starts_at').limit(40))); if (t === current()) draw(data); } catch (e) { if (t === current() && !$('#r .grid')) $('#r').innerHTML = errBox(e); } };
+  await load(); onLeave(watch('events', () => { invalidate('events:'); load(); })); onLeave(onResume(load));
 }
 
 export async function eventPage(app, [slug]) {
@@ -152,7 +160,7 @@ export async function eventPage(app, [slug]) {
 export async function trending(app) {
   setMeta('Trending', 'Top vendors, trending products and most wanted on campus this week.');
   if (!state.user) { app.innerHTML = `<div class="wrap pad"><h1>HikmahHub Weekly</h1>${signinCta()}</div>`; return; }
-  const [v, p, m] = await Promise.all([sb.rpc('get_top_vendors', { p_days: 7, p_limit: 10 }), sb.rpc('get_trending_products', { p_days: 7, p_limit: 10 }), sb.rpc('get_most_wanted', { p_days: 7, p_limit: 10 })]);
+  const sc = scope(); const [v, p, m] = (await Promise.all([cached(`tr:v:${sc}`, 120000, () => q(sb.rpc('get_top_vendors', { p_days: 7, p_limit: 10 }))), cached(`tr:p:${sc}`, 120000, () => q(sb.rpc('get_trending_products', { p_days: 7, p_limit: 10 }))), cached(`tr:m:${sc}`, 120000, () => q(sb.rpc('get_most_wanted', { p_days: 7, p_limit: 10 })))])).map(data => ({ data }));
   app.innerHTML = `<div class="wrap pad"><h1>HikmahHub Weekly</h1><p class="muted">Ranked automatically from the last 7 days of views, saves, enquiries and searches.</p>
   <div class="panel"><h2>Top vendors</h2>${rankList(v.data || [], x => `<a href="/shop/${esc(x.slug)}" data-link>${esc(x.store_name)}</a>`)}</div>
   <div class="panel"><h2>Trending products</h2>${rankList(p.data || [], x => `<a href="/shop/${esc(x.store_slug)}/${esc(x.slug)}" data-link>${esc(x.title)}</a> <span class="small muted">${esc(x.store_name)}</span>`)}</div>
@@ -162,8 +170,7 @@ export async function trending(app) {
 export async function request(app, _, qs) {
   setMeta('Request a product', 'Tell vendors what you are looking for.');
   if (!state.user) { app.innerHTML = `<div class="wrap pad"><h1>Request a product</h1>${signinCta()}</div>`; return; }
-  const { data: cats } = await sb.from('categories').select('id,name').is('parent_id', null).eq('is_active', true).order('sort_order');
-  const { data: mine } = await sb.from('demand_requests').select('id,title,status,created_at').order('created_at', { ascending: false }).limit(10);
+  const [cats, { data: mine }] = await Promise.all([getCats(), sb.from('demand_requests').select('id,title,status,created_at').order('created_at', { ascending: false }).limit(10)]);
   app.innerHTML = `<div class="wrap pad"><h1>Request a product</h1><p class="muted">Vendors see how many students want an item, never who you are.</p>
   <form id="f" class="panel"><label>What do you need?<input name="title" required minlength="3" maxlength="120" value="${esc(qs.get('title') || '')}"></label><div id="cnt" class="small muted"></div>
   <label>Details (optional)<textarea name="description" maxlength="1000"></textarea></label><label>Category<select name="category_id"><option value="">Any</option>${(cats || []).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>

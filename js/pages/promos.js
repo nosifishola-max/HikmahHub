@@ -1,8 +1,11 @@
 // Homepage promo carousel. Only live promotions are fetched (active + inside its date window; expiry needs no manual step).
 import { sb } from '../supabase.js';
 import { esc, waLink } from '../util.js';
+import { state } from '../auth.js';
+import { current, onLeave } from '../router.js';
+import { cached, invalidate, q } from '../cache.js';
+import { watch, onResume } from '../live.js';
 
-let cache = null;
 export const bannerUrl = p => p ? sb.storage.from('promo-banners').getPublicUrl(p).data.publicUrl : '';
 export function safeUrl(u) { try { const x = new URL(u); return (x.protocol === 'https:' || x.protocol === 'http:') ? x.href : null; } catch { return null; } }
 export function ctaHref(p) {
@@ -33,15 +36,24 @@ export function buildCarousel(el, promos, { auto = true } = {}) {
   return () => clearInterval(timer);
 }
 
+// Visibility is enforced by the database (RLS: active AND inside its window) and the query below. The browser only decides WHEN to re-check:
+// at the exact next start/end time (next_promo_change), on realtime changes (signed-in users), every 3 minutes while the tab is visible, and when you return to the tab.
 export async function mountPromos(el, placement = 'home_hero') {
-  if (!el) return;
-  const flagged = localStorage.getItem('hh_promos') === '1'; if (flagged) el.innerHTML = '<div class="skel pc-skel" aria-hidden="true"></div>'; // reserve space to avoid layout shift
-  try {
-    if (!cache || Date.now() - cache.t > 300000) {
-      const now = new Date().toISOString();
-      const { data, error } = await sb.from('promotions').select('id,title,description,image_path,cta_text,destination_url,whatsapp_number,is_sponsored,category').eq('placement', placement).eq('status', 'active').lte('starts_at', now).gt('ends_at', now).order('starts_at', { ascending: false }).limit(6);
-      if (error) throw error; cache = { t: Date.now(), data: data || [] };
-    }
-    localStorage.setItem('hh_promos', cache.data.length ? '1' : '0'); buildCarousel(el, cache.data);
-  } catch { el.innerHTML = ''; }
+  if (!el) return; const t = current(); let timer = null, poll = null, stopCarousel = () => { }, sig = '';
+  if (localStorage.getItem('hh_promos') === '1') el.innerHTML = '<div class="skel pc-skel" aria-hidden="true"></div>';   // reserve space only when promos were shown last time (no layout shift)
+  const fetchLive = () => cached(`promos:${placement}`, 60000, () => { const now = new Date().toISOString(); return q(sb.from('promotions').select('id,title,description,image_path,cta_text,destination_url,whatsapp_number,is_sponsored,category').eq('placement', placement).eq('status', 'active').lte('starts_at', now).gt('ends_at', now).order('starts_at', { ascending: false }).limit(6)); });
+  const schedule = async () => { clearTimeout(timer); try { const { data } = await sb.rpc('next_promo_change', { p_placement: placement }); if (!data) return; const ms = Math.min(Math.max(new Date(data) - Date.now() + 1000, 5000), 900000); timer = setTimeout(() => draw(true), ms); } catch { } };
+  async function draw(force) {
+    if (t !== current() || !el.isConnected) return; if (force) invalidate('promos:');
+    try {
+      const data = await fetchLive(); if (t !== current()) return;
+      const s = JSON.stringify(data.map(p => [p.id, p.title, p.description, p.image_path, p.cta_text, p.destination_url, p.whatsapp_number, p.is_sponsored]));
+      if (s !== sig) { sig = s; stopCarousel(); stopCarousel = buildCarousel(el, data); }       // only rebuild when something actually changed
+      localStorage.setItem('hh_promos', data.length ? '1' : '0'); schedule();
+    } catch { if (!sig) el.innerHTML = ''; }
+  }
+  await draw(false);
+  poll = setInterval(() => { if (!document.hidden) draw(true); }, 180000);
+  const stopWatch = state.user ? watch('promotions', () => draw(true)) : () => { }, stopResume = onResume(() => draw(false));
+  onLeave(() => { clearTimeout(timer); clearInterval(poll); stopCarousel(); stopWatch(); stopResume(); });
 }

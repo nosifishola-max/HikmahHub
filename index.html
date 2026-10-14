@@ -10,7 +10,10 @@
 <meta property="og:title" content="HikmahHub – Campus marketplace and discovery">
 <meta property="og:description" content="Discover what's being sold, wanted and happening around your campus.">
 <meta property="og:image" content="/assets/og-default.png">
-<script>/* capture the install prompt as early as possible: it can fire before the app modules finish loading */window.__bip=null;addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__bip=e});addEventListener("appinstalled",function(){window.__bip=null;dispatchEvent(new Event("hh-installed"))});</script>
+<script>/* capture the install prompt as early as possible: it can fire before the app modules finish loading */window.__authHash=location.hash;window.__bip=null;addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__bip=e});addEventListener("appinstalled",function(){window.__bip=null;dispatchEvent(new Event("hh-installed"))});</script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin><link rel="preconnect" href="https://tqfgrugtgjnxlbqffmgy.supabase.co" crossorigin>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<link rel="modulepreload" href="/js/main.js"><link rel="modulepreload" href="/js/pages/public.js"><link rel="modulepreload" href="/js/pages/promos.js"><link rel="modulepreload" href="/js/auth.js"><link rel="modulepreload" href="/js/router.js"><link rel="modulepreload" href="/js/util.js"><link rel="modulepreload" href="/js/cache.js"><link rel="modulepreload" href="/js/live.js"><link rel="modulepreload" href="/js/nav.js">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/assets/icons/favicon.png">
 <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
@@ -19,7 +22,7 @@
 <body>
 <a class="skip" href="#app">Skip to content</a>
 <header class="top"><div class="wrap bar">
-  <a href="/" data-link class="brand"><img src="/assets/logo.png" alt="HikmahHub" width="150" height="39"></a>
+  <a href="/" data-link class="brand"><img src="/assets/logo-sm.webp" alt="HikmahHub" width="109" height="28"></a>
   <nav class="desk" aria-label="Main" id="desknav"></nav>
   <button id="install" class="btn sm ghost" hidden>Install app</button>
 </div></header>

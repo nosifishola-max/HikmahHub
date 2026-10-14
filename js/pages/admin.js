@@ -1,13 +1,17 @@
 import { sb } from '../supabase.js';
 import { state, isAdmin } from '../auth.js';
 import { $, $$, esc, money, img, toast, fmtDate, formData, upload, removeFiles, setMeta } from '../util.js';
-import { go } from '../router.js';
+import { go, onLeave } from '../router.js';
+import { watch } from '../live.js';
+import { cached, invalidate, q } from '../cache.js';
 import { regenerate, currentVersion, cleanupFiles } from '../branding.js';
 import { buildCarousel, bannerUrl } from './promos.js';
 import { encode, sha256, put } from '../util.js';
+import { normalizePhone } from '../phone.js';
+import { friendlyError } from '../validate.js';
 
-let tab = 'overview';
-const TABS = { overview: 'Overview', vendors: 'Vendors', products: 'Products', deals: 'Deals', events: 'Events', categories: 'Categories', reports: 'Reports', demand: 'Demand', promotions: 'Promotions', branding: 'Branding', storage: 'Storage' };
+let tab = 'review', vFilter = 'pending', pFilter = 'pending';
+const TABS = { review: 'Review', overview: 'Overview', vendors: 'Vendors', products: 'Products', deals: 'Deals', events: 'Events', categories: 'Categories', reports: 'Reports', demand: 'Demand', promotions: 'Promotions', branding: 'Branding', storage: 'Storage' };
 const run = async (p, ok = 'Done') => { const { error } = await p; toast(error ? error.message : ok); return !error; };
 
 export async function admin(app) {
@@ -16,35 +20,86 @@ export async function admin(app) {
   setMeta('Admin', 'HikmahHub administration');
   app.innerHTML = `<div class="wrap pad"><h1>Admin</h1><div class="seg">${Object.entries(TABS).map(([k, l]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div><div id="tab">Loading…</div></div>`;
   $$('.seg button').forEach(b => b.onclick = () => { tab = b.dataset.t; admin(app); });
-  await ({ overview, vendors, products, deals, events, categories, reports, demand, promotions, branding, storage })[tab]($('#tab'));
+  if (!stopA) { stopA = [watch('vendors', onAdminChange), watch('products', onAdminChange)]; onLeave(() => { stopA?.forEach(f => f()); stopA = null; }); }
+  await ({ review, overview, vendors, products, deals, events, categories, reports, demand, promotions, branding, storage })[tab]($('#tab'));
 }
-const again = () => admin($('#app'));
+const again = () => { invalidate('adm:'); admin($('#app')); };
+const getOverview = async () => { try { return { data: await cached('adm:ov', 20000, () => q(sb.rpc('get_admin_overview'))) }; } catch (error) { return { error }; } };   // ~19 counts in one call, reused for 20s
+let stopA = null;
+function onAdminChange() {   // a new application/listing arrived: refresh the open queue unless the admin is typing
+  invalidate('adm:'); if (document.activeElement?.closest?.('#tab form, #tab input, #tab textarea')) return;
+  const fn = { review, overview, vendors, products }[tab]; if (fn && $('#tab')) fn($('#tab'));
+}
 const table = (head, rows) => rows.length ? `<div class="scroll"><table class="tbl"><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>${rows.join('')}</table></div>` : '<div class="empty">Nothing here yet.</div>';
 
 async function overview(el) {
-  const [{ data: o, error }, { data: rk }] = await Promise.all([sb.rpc('get_admin_overview'), sb.from('weekly_rankings').select('*').order('week_start', { ascending: false }).order('rank').limit(30)]);
+  const [{ data: o, error }, { data: rk }] = await Promise.all([getOverview(), sb.from('weekly_rankings').select('*').order('week_start', { ascending: false }).order('rank').limit(30)]);
   if (error) return el.innerHTML = esc(error.message);
-  const L = { students: 'Students', vendors_total: 'Vendors', vendors_pending: 'Pending vendors', vendors_verified: 'Verified vendors', products_active: 'Active products', products_pending: 'Pending products', product_views_7d: 'Product views (7d)', store_views_7d: 'Store views (7d)', whatsapp_clicks_7d: 'WhatsApp clicks (7d)', demand_requests_open: 'Open requests', deals_active: 'Active deals', events_upcoming: 'Upcoming events', reports_open: 'Open reports' };
+  const L = { students: 'Students', vendors_total: 'Vendors', vendors_pending: 'Pending vendors', vendors_rejected: 'Rejected vendors', vendors_verified: 'Verified vendors', products_active: 'Active products', products_pending: 'Pending products', products_changes: 'Listings with pending changes', products_featured: 'Featured products', emails_failed: 'Emails to send/retry', images_failed: 'Image branding failures', product_views_7d: 'Product views (7d)', store_views_7d: 'Store views (7d)', whatsapp_clicks_7d: 'WhatsApp clicks (7d)', demand_requests_open: 'Open requests', deals_active: 'Active deals', events_upcoming: 'Upcoming events', reports_open: 'Open reports' };
   el.innerHTML = `<div class="stats">${Object.entries(L).map(([k, l]) => `<div class="stat"><b>${o[k]}</b>${l}</div>`).join('')}</div>
   <div class="panel" style="margin-top:14px"><div class="row"><h2 class="grow">Weekly rankings</h2><button id="snap" class="btn sm">Generate this week</button></div>
   ${rk?.length ? table(['Week', 'Type', '#', 'Name', 'Score'], rk.map(r => `<tr><td>${r.week_start}</td><td>${r.kind.replace('_', ' ')}</td><td>${r.rank}</td><td>${esc(r.label)}</td><td>${r.score}</td></tr>`)) : '<p class="muted">No snapshot yet. Rankings are also live for students.</p>'}</div>`;
   $('#snap').onclick = async () => { if (await run(sb.rpc('snapshot_weekly_rankings'), 'Rankings generated')) again(); };
 }
 
+async function sendNotification(id) {   // asks the server function to email the vendor; failures are recorded and can be retried
+  const { data: { session } } = await sb.auth.getSession();
+  try { const r = await fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ notification_id: id }) });
+    const j = await r.json().catch(() => ({})); return r.ok && j.ok ? { ok: true, skipped: !!j.skipped } : { ok: false, error: j.error || 'Email service unavailable' };
+  } catch { return { ok: false, error: 'Could not reach the email service' }; }
+}
+const ago = d => { const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
+async function reviewVendor(id, status) {
+  let reason = null;
+  if (status === 'rejected' || status === 'suspended') { reason = prompt(status === 'rejected' ? 'Reason for rejecting (the vendor will see this and can fix and resubmit):' : 'Reason for suspending:'); if (reason === null) return false; if (reason.trim().length < 3) { toast('A reason of at least 3 characters is required.'); return false; } }
+  const { data: nid, error } = await sb.rpc('admin_set_vendor_status', { p_vendor: id, p_status: status, p_reason: reason });
+  if (error) { toast(friendlyError(error)); return false; }
+  if (nid) { const r = await sendNotification(nid); toast(r.ok ? `Vendor ${status}. Email sent.` : `Vendor ${status}, but the email was not sent (${r.error}). Use "Send email" to retry.`); } else toast(`Vendor ${status}`);
+  return true;
+}
+
+async function review(el) {
+  const { data: o, error } = await getOverview(); if (error) return el.innerHTML = esc(friendlyError(error));
+  const cards = [['Pending vendor applications', o.vendors_pending, 'vendors', 'pending'], ['Rejected, awaiting resubmission', o.vendors_rejected, 'vendors', 'rejected'], ['Pending listings', o.products_pending, 'products', 'pending'], ['Listings with pending changes', o.products_changes, 'products', 'changes'], ['Recently edited live listings', null, 'products', 'edited'], ['Featured listings', o.products_featured, 'products', 'featured'], ['Open reports', o.reports_open, 'reports'], ['Emails to send or retry', o.emails_failed, 'vendors', 'all'], ['Image branding failures', o.images_failed, 'branding']];
+  el.innerHTML = `<p class="muted small">Start here. Tap a card to open that queue.</p><div class="stats">${cards.map((c, i) => `<button class="stat" data-c="${i}" style="text-align:left;cursor:pointer;font:inherit"><b>${c[1] ?? '→'}</b>${c[0]}</button>`).join('')}</div>`;
+  $$('[data-c]', el).forEach(b => b.onclick = () => { const c = cards[b.dataset.c]; tab = c[2]; if (c[2] === 'vendors') vFilter = c[3] || vFilter; if (c[2] === 'products') pFilter = c[3] || pFilter; again(); });
+}
+
 async function vendors(el) {
-  const { data } = await sb.from('vendors').select('id,store_name,status,is_verified,is_featured,whatsapp_number,business_category,created_at,profiles!vendors_owner_id_fkey(full_name,email,matric_number)').order('created_at', { ascending: false });
-  el.innerHTML = table(['Store', 'Owner', 'Status', 'Actions'], (data || []).map(v => `<tr><td><b>${esc(v.store_name)}</b><br><span class="small muted">${esc(v.business_category || '')}<br>${esc(v.whatsapp_number)}</span></td><td>${esc(v.profiles?.full_name)}<br><span class="small muted">${esc(v.profiles?.email)}<br>${esc(v.profiles?.matric_number || '')}</span></td><td><span class="badge ${v.status === 'approved' ? 'ok' : v.status === 'pending' ? '' : 'bad'}">${v.status}</span></td>
-  <td><div class="row">${v.status !== 'approved' ? `<button class="btn sm" data-a="approved" data-id="${v.id}">Approve</button>` : `<button class="btn sm danger" data-a="suspended" data-id="${v.id}">Suspend</button>`}${v.status === 'pending' ? `<button class="btn sm danger" data-a="rejected" data-id="${v.id}">Reject</button>` : ''}<button class="btn sm ghost" data-f="${v.id}" data-v="${!v.is_featured}">${v.is_featured ? 'Unfeature' : 'Feature'}</button></div></td></tr>`));
-  $$('[data-a]', el).forEach(b => b.onclick = async () => { const reason = b.dataset.a === 'approved' ? null : prompt('Reason (shown to the vendor):') ; if (b.dataset.a !== 'approved' && reason === null) return; if (await run(sb.rpc('admin_set_vendor_status', { p_vendor: b.dataset.id, p_status: b.dataset.a, p_reason: reason }), 'Vendor updated')) again(); });
-  $$('[data-f]', el).forEach(b => b.onclick = async () => { if (await run(sb.from('vendors').update({ is_featured: b.dataset.v === 'true' }).eq('id', b.dataset.f))) again(); });
+  const { data, error } = await sb.from('vendors').select('id,store_name,status,is_featured,whatsapp_number,business_category,campus_location,description,created_at,rejection_reason,profiles!vendors_owner_id_fkey(full_name,email,phone,matric_number,faculty,department,level),vendor_notifications(id,kind,status,last_error,created_at)').order('created_at', { ascending: false }).limit(120);
+  if (error) return el.innerHTML = esc(friendlyError(error));
+  const cnt = s => data.filter(v => s === 'all' || v.status === s).length, list = data.filter(v => vFilter === 'all' || v.status === vFilter);
+  el.innerHTML = `<div class="seg">${['pending', 'rejected', 'approved', 'suspended', 'all'].map(s => `<button data-f="${s}" class="${s === vFilter ? 'on' : ''}">${s[0].toUpperCase() + s.slice(1)} (${cnt(s)})</button>`).join('')}</div>` +
+  (list.length ? list.map(v => { const n = (v.vendor_notifications || []).sort((x, y) => new Date(y.created_at) - new Date(x.created_at))[0], pr = v.profiles || {};
+    return `<details class="rv"><summary>${esc(v.store_name)} <span class="badge ${v.status === 'approved' ? 'ok' : v.status === 'pending' ? '' : 'bad'}">${v.status}</span> <span class="small muted">· ${ago(v.created_at)}</span></summary>
+    <div class="small" style="margin:8px 0;line-height:1.6"><b>Owner:</b> ${esc(pr.full_name)} · ${esc(pr.email)}<br><b>Matric:</b> ${esc(pr.matric_number || '-')} · ${esc(pr.faculty || '-')} / ${esc(pr.department || '-')} · Level ${esc(pr.level || '-')}<br><b>WhatsApp:</b> <a href="https://wa.me/${esc(v.whatsapp_number)}" target="_blank" rel="noopener">+${esc(v.whatsapp_number)}</a><br><b>Sells:</b> ${esc(v.business_category || '-')} · <b>Location:</b> ${esc(v.campus_location || '-')}<br><b>About:</b> ${esc(v.description || '-')}${v.rejection_reason ? `<br><b>Last reason:</b> ${esc(v.rejection_reason)}` : ''}</div>
+    ${n ? `<div class="small">Email: <span class="badge ${n.status === 'sent' ? 'ok' : 'bad'}">${n.kind} · ${n.status}</span> ${n.last_error ? esc(n.last_error) : ''} ${n.status !== 'sent' ? `<button class="btn sm ghost" data-mail="${n.id}">Send email</button>` : ''}</div>` : ''}
+    <div class="row" style="margin-top:8px">${['pending', 'rejected', 'suspended'].includes(v.status) ? `<button class="btn sm" data-a="approved" data-id="${v.id}">Approve</button>` : ''}${v.status === 'pending' ? `<button class="btn sm danger" data-a="rejected" data-id="${v.id}">Reject…</button>` : ''}${v.status === 'approved' ? `<button class="btn sm danger" data-a="suspended" data-id="${v.id}">Suspend…</button><button class="btn sm ghost" data-ft="${v.id}" data-v="${!v.is_featured}">${v.is_featured ? 'Unfeature store' : 'Feature store'}</button>` : ''}</div></details>`; }).join('') : '<div class="empty">Nothing in this queue.</div>');
+  $$('[data-f]', el).forEach(b => b.onclick = () => { vFilter = b.dataset.f; vendors(el); });
+  $$('[data-a]', el).forEach(b => b.onclick = async () => { b.disabled = true; if (await reviewVendor(b.dataset.id, b.dataset.a)) again(); else b.disabled = false; });
+  $$('[data-mail]', el).forEach(b => b.onclick = async () => { b.disabled = true; const r = await sendNotification(b.dataset.mail); toast(r.ok ? 'Email sent' : `Email failed: ${r.error}`); again(); });
+  $$('[data-ft]', el).forEach(b => b.onclick = async () => { if (await run(sb.from('vendors').update({ is_featured: b.dataset.v === 'true' }).eq('id', b.dataset.ft))) again(); });
 }
 
 async function products(el) {
-  const { data } = await sb.from('products').select('id,title,price,status,is_featured,slug,vendors(store_name,slug)').order('status').order('created_at', { ascending: false }).limit(100);
-  el.innerHTML = table(['Listing', 'Store', 'Status', 'Actions'], (data || []).map(p => `<tr><td><a href="/shop/${esc(p.vendors.slug)}/${esc(p.slug)}" data-link>${esc(p.title)}</a><br>${money(p.price)}</td><td>${esc(p.vendors.store_name)}</td><td><span class="badge ${p.status === 'approved' ? 'ok' : p.status === 'pending' ? '' : 'bad'}">${p.status}</span></td>
-  <td><div class="row"><button class="btn sm" data-s="approved" data-id="${p.id}">Approve</button><button class="btn sm ghost" data-s="rejected" data-id="${p.id}">Reject</button><button class="btn sm ghost" data-s="hidden" data-id="${p.id}">Hide</button><button class="btn sm ghost" data-ft="${p.id}" data-v="${!p.is_featured}">${p.is_featured ? 'Unfeature' : 'Feature'}</button><button class="btn sm danger" data-d="${p.id}">Delete</button></div></td></tr>`));
-  $$('[data-s]', el).forEach(b => b.onclick = async () => { if (await run(sb.from('products').update({ status: b.dataset.s }).eq('id', b.dataset.id))) again(); });
-  $$('[data-ft]', el).forEach(b => b.onclick = async () => { if (await run(sb.from('products').update({ is_featured: b.dataset.v === 'true' }).eq('id', b.dataset.ft))) again(); });
+  const { data, error } = await sb.from('products').select('id,title,price,status,is_featured,slug,description,review_note,pending_changes,created_at,updated_at,vendors(store_name,slug),categories(name),product_images(path,sort_order)').order('updated_at', { ascending: false }).limit(120);
+  if (error) return el.innerHTML = esc(friendlyError(error));
+  const week = Date.now() - 7 * 864e5, edited = p => p.status === 'approved' && new Date(p.updated_at) > week && new Date(p.updated_at) - new Date(p.created_at) > 120000;
+  const F = { pending: p => p.status === 'pending', changes: p => !!p.pending_changes, edited, featured: p => p.is_featured, approved: p => p.status === 'approved', rejected: p => p.status === 'rejected', hidden: p => p.status === 'hidden', all: () => true };
+  const names = { pending: 'Pending', changes: 'Pending changes', edited: 'Recently edited', featured: 'Featured', approved: 'Approved', rejected: 'Rejected', hidden: 'Hidden', all: 'All' };
+  let list = data.filter(F[pFilter] || F.all); if (pFilter === 'pending') list = list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const diff = p => { const c = p.pending_changes; if (!c) return ''; const row = (k, o, n) => `<div><b>${k}:</b> <del>${esc(o ?? '')}</del> → <ins>${esc(n ?? '')}</ins></div>`; return `<div class="diff"><b>Proposed changes</b>${'title' in c ? row('Title', p.title, c.title) : ''}${'description' in c ? row('Description', (p.description || '').slice(0, 160), (c.description || '').slice(0, 160)) : ''}${'category_id' in c ? '<div><b>Category changed</b></div>' : ''}${'listing_type' in c ? row('Type', '', c.listing_type) : ''}</div>`; };
+  el.innerHTML = `<div class="seg">${Object.keys(names).map(s => `<button data-f="${s}" class="${s === pFilter ? 'on' : ''}">${names[s]} (${data.filter(F[s]).length})</button>`).join('')}</div>` +
+  (list.length ? list.map(p => { const im = p.product_images?.sort((x, y) => x.sort_order - y.sort_order)[0]?.path;
+    return `<div class="rv"><div class="row" style="align-items:flex-start;flex-wrap:nowrap"><img src="${img('product-images', im, true)}" width="64" height="64" style="object-fit:cover;border-radius:8px;flex:none" alt=""><div class="grow"><b>${esc(p.title || 'Untitled draft')}</b> <span class="badge ${p.status === 'approved' ? 'ok' : p.status === 'pending' ? '' : 'bad'}">${p.status}</span>${p.product_images?.length ? '' : ' <span class="badge bad">No image</span>'}${p.is_featured ? ' <span class="badge teal">Featured</span>' : ''}${edited(p) ? ' <span class="badge">Edited ' + ago(p.updated_at) + '</span>' : ''}<br><span class="small muted">${p.price == null ? 'no price' : money(p.price)} · ${esc(p.vendors?.store_name)} · ${esc(p.categories?.name || 'no category')} · submitted ${ago(p.created_at)}</span><div class="small">${esc((p.description || '').slice(0, 140))}</div>${p.review_note ? `<div class="small" style="color:var(--danger)">Note: ${esc(p.review_note)}</div>` : ''}</div></div>${diff(p)}
+    <div class="row" style="margin-top:8px">${p.pending_changes ? `<button class="btn sm" data-ch="1" data-id="${p.id}">Approve changes</button><button class="btn sm danger" data-ch="0" data-id="${p.id}">Reject changes…</button>` : ''}${['pending', 'rejected', 'hidden'].includes(p.status) ? `<button class="btn sm" data-s="approved" data-id="${p.id}">Approve</button>` : ''}${p.status === 'pending' ? `<button class="btn sm danger" data-s="rejected" data-id="${p.id}">Reject…</button>` : ''}${p.status === 'approved' ? `<button class="btn sm ghost" data-s="hidden" data-id="${p.id}">Hide…</button><button class="btn sm ghost" data-ft="${p.id}" data-v="${!p.is_featured}">${p.is_featured ? 'Remove from featured' : 'Feature'}</button>` : ''}<a class="btn sm ghost" href="/shop/${esc(p.vendors?.slug)}/${esc(p.slug)}" data-link>Open</a>${['rejected', 'hidden'].includes(p.status) ? `<button class="btn sm danger" data-d="${p.id}">Delete</button>` : ''}</div></div>`; }).join('') : '<div class="empty">Nothing in this queue.</div>');
+  const ask = (q) => { const r = prompt(q); if (r === null) return null; if (r.trim().length < 3) { toast('A reason of at least 3 characters is required.'); return null; } return r.trim(); };
+  $$('[data-f]', el).forEach(b => b.onclick = () => { pFilter = b.dataset.f; products(el); });
+  $$('[data-s]', el).forEach(b => b.onclick = async () => { let note = null; if (b.dataset.s !== 'approved') { note = ask(b.dataset.s === 'rejected' ? 'Reason for rejecting (the vendor will see this):' : 'Reason for hiding:'); if (!note) return; }
+    const { error } = await sb.rpc('admin_review_product', { p_product: b.dataset.id, p_status: b.dataset.s, p_note: note }); toast(error ? friendlyError(error) : 'Listing ' + b.dataset.s); if (!error) again(); });
+  $$('[data-ch]', el).forEach(b => b.onclick = async () => { const ok = b.dataset.ch === '1'; const note = ok ? null : ask('Why are these changes not approved? (the vendor will see this)'); if (!ok && !note) return;
+    const { error } = await sb.rpc('admin_review_changes', { p_product: b.dataset.id, p_approve: ok, p_note: note }); toast(error ? friendlyError(error) : ok ? 'Changes approved' : 'Changes rejected'); if (!error) again(); });
+  $$('[data-ft]', el).forEach(b => b.onclick = async () => { const { error } = await sb.rpc('admin_set_featured', { p_product: b.dataset.ft, p_featured: b.dataset.v === 'true' }); toast(error ? friendlyError(error) : b.dataset.v === 'true' ? 'Listing featured' : 'Removed from featured'); if (!error) again(); });
   $$('[data-d]', el).forEach(b => b.onclick = async () => { if (!confirm('Delete permanently?')) return; const { data: im } = await sb.from('product_images').select('path,original_path').eq('product_id', b.dataset.d); if (await run(sb.from('products').delete().eq('id', b.dataset.d), 'Deleted')) { await cleanupFiles((im || []).map(x => x.path), (im || []).map(x => x.original_path)); again(); } });
 }
 
@@ -126,7 +181,7 @@ async function bannerBlob(file) { // center-crop to 2:1, 1200x600, WebP <= 200 K
   throw new Error('Could not compress this banner enough. Try a simpler image.');
 }
 const imageStillUsed = async (path, exceptId) => { if (!path) return true; const { count } = await sb.from('promotions').select('id', { count: 'exact', head: true }).eq('image_path', path).neq('id', exceptId || '00000000-0000-0000-0000-000000000000'); return !!count; };
-function normWhatsApp(v) { v = (v || '').trim(); if (!v) return ''; const m = v.match(/^https?:\/\/(?:wa\.me\/|api\.whatsapp\.com\/send\?phone=)(\d{10,15})/i); const d = m ? m[1] : v.replace(/[\s+()-]/g, ''); if (!/^\d{10,15}$/.test(d)) throw new Error('WhatsApp must be a number with country code (e.g. 2348012345678) or a wa.me link.'); return d; }
+function normWhatsApp(v) { v = (v || '').trim(); if (!v) return ''; const m = v.match(/^https?:\/\/(?:wa\.me\/|api\.whatsapp\.com\/send\?phone=)(\+?[\d\s-]{8,20})/i); const r = normalizePhone(m ? m[1] : v); if (!r.ok) throw new Error('WhatsApp destination: ' + r.error); return r.value; }
 
 async function promotions(el, editId) {
   const { data, error } = await sb.from('promotions').select('*').order('created_at', { ascending: false }).limit(100);
