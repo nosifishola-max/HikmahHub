@@ -114,3 +114,14 @@ label{margin:9px 0 3px;font-size:.84rem}
 .modal .box{padding:14px 14px calc(14px + env(safe-area-inset-bottom))}
 .skel{height:130px}.pwt{height:var(--ctl);width:var(--ctl);top:0;right:0}.pw input{padding-right:44px}
 #toast{bottom:70px;font-size:.88rem;padding:8px 13px}
+
+/* ---- v1.5: admin notification bell ---- */
+.bell{margin-left:auto;position:relative;width:40px;height:40px;border:0;border-radius:10px;background:none;color:var(--green);display:grid;place-items:center;cursor:pointer}.bell:hover{background:#eaf2ec}
+.bell:not([hidden])~#install{margin-left:6px}@media(min-width:800px){.bell{margin-left:8px}}
+.bn{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--danger);color:#fff;font-size:.68rem;font-weight:800;display:grid;place-items:center}
+.npanel{position:fixed;top:calc(50px + env(safe-area-inset-top));right:8px;left:8px;max-width:400px;margin-left:auto;max-height:70vh;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);z-index:40}
+.npanel header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff}
+.nitem{display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);width:100%;text-align:left;background:#fff;border-left:0;border-right:0;border-top:0;font:inherit;cursor:pointer;color:inherit}.nitem:hover{background:#f6f9f4}
+.nitem.unread{background:#f1f8f3}.nitem .dot{width:8px;height:8px;border-radius:50%;background:var(--green2);flex:none;margin-top:7px}.nitem.read .dot{background:transparent}
+.nitem .ico{font-size:1.15rem;flex:none}.nitem b{display:block;font-size:.88rem}.nitem span.t{font-size:.8rem;color:var(--muted)}
+.hl{outline:3px solid var(--gold);outline-offset:2px;border-radius:12px}

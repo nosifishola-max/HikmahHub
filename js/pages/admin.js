@@ -18,14 +18,27 @@ export async function admin(app) {
   if (!state.user) return go('/login');
   if (!isAdmin()) { app.innerHTML = `<div class="wrap pad"><div class="empty"><h3>Admins only</h3><a class="btn" href="/" data-link>Go home</a></div></div>`; return; }
   setMeta('Admin', 'HikmahHub administration');
+  const sp = new URLSearchParams(location.search);                       // deep link from a notification: /admin?tab=products&pf=pending&focus=<id>
+  if (sp.has('tab') && TABS[sp.get('tab')]) {
+    tab = sp.get('tab'); if (['pending', 'rejected', 'approved', 'suspended', 'all'].includes(sp.get('vf'))) vFilter = sp.get('vf'); if (['pending', 'changes', 'edited', 'featured', 'approved', 'rejected', 'hidden', 'all'].includes(sp.get('pf'))) pFilter = sp.get('pf');
+    focusId = /^[0-9a-f-]{36}$/i.test(sp.get('focus') || '') ? sp.get('focus') : null; history.replaceState({}, '', '/admin');
+  }
   app.innerHTML = `<div class="wrap pad"><h1>Admin</h1><div class="seg">${Object.entries(TABS).map(([k, l]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div><div id="tab">Loading…</div></div>`;
   $$('.seg button').forEach(b => b.onclick = () => { tab = b.dataset.t; admin(app); });
   if (!stopA) { stopA = [watch('vendors', onAdminChange), watch('products', onAdminChange)]; onLeave(() => { stopA?.forEach(f => f()); stopA = null; }); }
-  await ({ review, overview, vendors, products, deals, events, categories, reports, demand, promotions, branding, storage })[tab]($('#tab'));
+  const run = () => ({ review, overview, vendors, products, deals, events, categories, reports, demand, promotions, branding, storage })[tab]($('#tab'));
+  await run();
+  if (focusId && !document.querySelector(`[data-fid="${focusId}"]`) && (tab === 'vendors' || tab === 'products')) { if (tab === 'vendors') vFilter = 'all'; else pFilter = 'all'; await run(); }   // already reviewed? look in All
+  applyFocus();
+}
+function applyFocus() {
+  if (!focusId) return; const id = focusId; focusId = null; const el = document.querySelector(`[data-fid="${id}"]`);
+  if (!el) { toast('That item is no longer in the list.'); return; }
+  if (el.tagName === 'DETAILS') el.open = true; el.classList.add('hl'); el.scrollIntoView({ block: 'center' }); setTimeout(() => el.classList.remove('hl'), 4000);
 }
 const again = () => { invalidate('adm:'); admin($('#app')); };
 const getOverview = async () => { try { return { data: await cached('adm:ov', 20000, () => q(sb.rpc('get_admin_overview'))) }; } catch (error) { return { error }; } };   // ~19 counts in one call, reused for 20s
-let stopA = null;
+let stopA = null, focusId = null;
 function onAdminChange() {   // a new application/listing arrived: refresh the open queue unless the admin is typing
   invalidate('adm:'); if (document.activeElement?.closest?.('#tab form, #tab input, #tab textarea')) return;
   const fn = { review, overview, vendors, products }[tab]; if (fn && $('#tab')) fn($('#tab'));
@@ -42,11 +55,29 @@ async function overview(el) {
   $('#snap').onclick = async () => { if (await run(sb.rpc('snapshot_weekly_rankings'), 'Rankings generated')) again(); };
 }
 
-async function sendNotification(id) {   // asks the server function to email the vendor; failures are recorded and can be retried
-  const { data: { session } } = await sb.auth.getSession();
-  try { const r = await fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ notification_id: id }) });
-    const j = await r.json().catch(() => ({})); return r.ok && j.ok ? { ok: true, skipped: !!j.skipped } : { ok: false, error: j.error || 'Email service unavailable' };
-  } catch { return { ok: false, error: 'Could not reach the email service' }; }
+const sending = new Set();   // one request per notification at a time (repeated taps cannot double-send; the server also refuses duplicates)
+async function sendNotification(id) {
+  if (sending.has(id)) return { ok: false, busy: true, error: 'Already sending' }; sending.add(id);
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const r = await fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ notification_id: id }) });
+    const j = await r.json().catch(() => ({})); if (r.ok && j.ok) return { ok: true, skipped: !!j.skipped };
+    const msg = { not_configured: 'email is not set up on the server yet', smtp_auth: 'Gmail rejected the login', smtp_connect: 'could not reach the mail server' }[j.code] || (r.status === 404 ? 'the email service only runs on the live site' : j.error || 'email service unavailable');
+    return { ok: false, code: j.code, error: msg };
+  } catch { return { ok: false, error: 'could not reach the email service' }; } finally { sending.delete(id); }
+}
+let cfgCache = null;
+async function getEmailConfig() {   // names of missing settings only, never values
+  if (cfgCache && Date.now() - cfgCache.t < 60000) return cfgCache.v;
+  let v; try { const { data: { session } } = await sb.auth.getSession(); const r = await fetch('/api/notify', { headers: { Authorization: `Bearer ${session?.access_token}` } }); v = r.ok ? await r.json() : { error: true }; } catch { v = { error: true }; }
+  cfgCache = { t: Date.now(), v }; return v;
+}
+const EMAIL_ERR = { NOT_CONFIGURED: 'Email is not set up on the server. Add SMTP_USER and SMTP_PASS in Vercel (Settings → Environment Variables), then redeploy.', SMTP_AUTH: 'Gmail rejected the login. Use your Gmail address in SMTP_USER and a Gmail app password (not your normal password) in SMTP_PASS, then redeploy.', SMTP_CONNECT: 'Could not reach the mail server. Try again in a minute.', SEND_FAILED: 'The mail server did not accept the message. Try again; if it keeps failing, check the Vercel logs.' };
+function emailLine(n, cfg) {
+  const kind = n.kind === 'approved' ? 'approval' : 'rejection', t = n.last_error || '', code = /not configured/i.test(t) ? 'NOT_CONFIGURED' : t.split(':')[0].trim();
+  const [cls, label] = { sent: ['ok', `${kind} email sent`], sending: ['', `sending ${kind} email…`], pending: ['bad', `${kind} email not sent yet`], failed: ['bad', `${kind} email failed`] }[n.status] || ['', n.status];
+  const why = n.status === 'failed' ? (EMAIL_ERR[code] || esc(t) || 'Unknown error.') : n.status === 'pending' && cfg && cfg.configured === false ? 'Email is not set up on the server yet (see the notice above).' : '';
+  return `<div class="small">Email: <span class="badge ${cls}">${label}</span> ${why} ${n.status === 'failed' || n.status === 'pending' ? `<button class="btn sm ghost" data-mail="${n.id}">Send email</button>` : ''}</div>`;
 }
 const ago = d => { const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
 async function reviewVendor(id, status) {
@@ -66,18 +97,19 @@ async function review(el) {
 }
 
 async function vendors(el) {
-  const { data, error } = await sb.from('vendors').select('id,store_name,status,is_featured,whatsapp_number,business_category,campus_location,description,created_at,rejection_reason,profiles!vendors_owner_id_fkey(full_name,email,phone,matric_number,faculty,department,level),vendor_notifications(id,kind,status,last_error,created_at)').order('created_at', { ascending: false }).limit(120);
+  const [{ data, error }, cfg] = await Promise.all([sb.from('vendors').select('id,store_name,status,is_featured,whatsapp_number,business_category,campus_location,description,created_at,rejection_reason,profiles!vendors_owner_id_fkey(full_name,email,phone,matric_number,faculty,department,level),vendor_notifications(id,kind,status,last_error,created_at)').order('created_at', { ascending: false }).limit(120), getEmailConfig()]);
   if (error) return el.innerHTML = esc(friendlyError(error));
   const cnt = s => data.filter(v => s === 'all' || v.status === s).length, list = data.filter(v => vFilter === 'all' || v.status === vFilter);
-  el.innerHTML = `<div class="seg">${['pending', 'rejected', 'approved', 'suspended', 'all'].map(s => `<button data-f="${s}" class="${s === vFilter ? 'on' : ''}">${s[0].toUpperCase() + s.slice(1)} (${cnt(s)})</button>`).join('')}</div>` +
+  const banner = cfg.error ? '<div class="notice small">Could not check the email setup (the email service only runs on the live site).</div>' : cfg.configured ? `<div class="small muted" style="margin:4px 0">Email sender: ${esc(cfg.sender)}</div>` : `<div class="notice bad small"><b>Email sending is not set up.</b> Missing: ${cfg.missing.map(esc).join(', ')}. Add them in Vercel → Project → Settings → Environment Variables (all environments), then redeploy. Approvals still work; the emails just are not sent.</div>`;
+  el.innerHTML = banner + `<div class="seg">${['pending', 'rejected', 'approved', 'suspended', 'all'].map(s => `<button data-f="${s}" class="${s === vFilter ? 'on' : ''}">${s[0].toUpperCase() + s.slice(1)} (${cnt(s)})</button>`).join('')}</div>` +
   (list.length ? list.map(v => { const n = (v.vendor_notifications || []).sort((x, y) => new Date(y.created_at) - new Date(x.created_at))[0], pr = v.profiles || {};
-    return `<details class="rv"><summary>${esc(v.store_name)} <span class="badge ${v.status === 'approved' ? 'ok' : v.status === 'pending' ? '' : 'bad'}">${v.status}</span> <span class="small muted">· ${ago(v.created_at)}</span></summary>
+    return `<details class="rv" data-fid="${v.id}"><summary>${esc(v.store_name)} <span class="badge ${v.status === 'approved' ? 'ok' : v.status === 'pending' ? '' : 'bad'}">${v.status}</span> <span class="small muted">· ${ago(v.created_at)}</span></summary>
     <div class="small" style="margin:8px 0;line-height:1.6"><b>Owner:</b> ${esc(pr.full_name)} · ${esc(pr.email)}<br><b>Matric:</b> ${esc(pr.matric_number || '-')} · ${esc(pr.faculty || '-')} / ${esc(pr.department || '-')} · Level ${esc(pr.level || '-')}<br><b>WhatsApp:</b> <a href="https://wa.me/${esc(v.whatsapp_number)}" target="_blank" rel="noopener">+${esc(v.whatsapp_number)}</a><br><b>Sells:</b> ${esc(v.business_category || '-')} · <b>Location:</b> ${esc(v.campus_location || '-')}<br><b>About:</b> ${esc(v.description || '-')}${v.rejection_reason ? `<br><b>Last reason:</b> ${esc(v.rejection_reason)}` : ''}</div>
-    ${n ? `<div class="small">Email: <span class="badge ${n.status === 'sent' ? 'ok' : 'bad'}">${n.kind} · ${n.status}</span> ${n.last_error ? esc(n.last_error) : ''} ${n.status !== 'sent' ? `<button class="btn sm ghost" data-mail="${n.id}">Send email</button>` : ''}</div>` : ''}
+    ${n ? emailLine(n, cfg) : ''}
     <div class="row" style="margin-top:8px">${['pending', 'rejected', 'suspended'].includes(v.status) ? `<button class="btn sm" data-a="approved" data-id="${v.id}">Approve</button>` : ''}${v.status === 'pending' ? `<button class="btn sm danger" data-a="rejected" data-id="${v.id}">Reject…</button>` : ''}${v.status === 'approved' ? `<button class="btn sm danger" data-a="suspended" data-id="${v.id}">Suspend…</button><button class="btn sm ghost" data-ft="${v.id}" data-v="${!v.is_featured}">${v.is_featured ? 'Unfeature store' : 'Feature store'}</button>` : ''}</div></details>`; }).join('') : '<div class="empty">Nothing in this queue.</div>');
   $$('[data-f]', el).forEach(b => b.onclick = () => { vFilter = b.dataset.f; vendors(el); });
   $$('[data-a]', el).forEach(b => b.onclick = async () => { b.disabled = true; if (await reviewVendor(b.dataset.id, b.dataset.a)) again(); else b.disabled = false; });
-  $$('[data-mail]', el).forEach(b => b.onclick = async () => { b.disabled = true; const r = await sendNotification(b.dataset.mail); toast(r.ok ? 'Email sent' : `Email failed: ${r.error}`); again(); });
+  $$('[data-mail]', el).forEach(b => b.onclick = async () => { b.disabled = true; const r = await sendNotification(b.dataset.mail); if (r.busy) return; cfgCache = null; toast(r.ok ? (r.skipped ? 'Already sent' : 'Email sent') : `Email not sent: ${r.error}`); again(); });
   $$('[data-ft]', el).forEach(b => b.onclick = async () => { if (await run(sb.from('vendors').update({ is_featured: b.dataset.v === 'true' }).eq('id', b.dataset.ft))) again(); });
 }
 
@@ -91,7 +123,7 @@ async function products(el) {
   const diff = p => { const c = p.pending_changes; if (!c) return ''; const row = (k, o, n) => `<div><b>${k}:</b> <del>${esc(o ?? '')}</del> → <ins>${esc(n ?? '')}</ins></div>`; return `<div class="diff"><b>Proposed changes</b>${'title' in c ? row('Title', p.title, c.title) : ''}${'description' in c ? row('Description', (p.description || '').slice(0, 160), (c.description || '').slice(0, 160)) : ''}${'category_id' in c ? '<div><b>Category changed</b></div>' : ''}${'listing_type' in c ? row('Type', '', c.listing_type) : ''}</div>`; };
   el.innerHTML = `<div class="seg">${Object.keys(names).map(s => `<button data-f="${s}" class="${s === pFilter ? 'on' : ''}">${names[s]} (${data.filter(F[s]).length})</button>`).join('')}</div>` +
   (list.length ? list.map(p => { const im = p.product_images?.sort((x, y) => x.sort_order - y.sort_order)[0]?.path;
-    return `<div class="rv"><div class="row" style="align-items:flex-start;flex-wrap:nowrap"><img src="${img('product-images', im, true)}" width="64" height="64" style="object-fit:cover;border-radius:8px;flex:none" alt=""><div class="grow"><b>${esc(p.title || 'Untitled draft')}</b> <span class="badge ${p.status === 'approved' ? 'ok' : p.status === 'pending' ? '' : 'bad'}">${p.status}</span>${p.product_images?.length ? '' : ' <span class="badge bad">No image</span>'}${p.is_featured ? ' <span class="badge teal">Featured</span>' : ''}${edited(p) ? ' <span class="badge">Edited ' + ago(p.updated_at) + '</span>' : ''}<br><span class="small muted">${p.price == null ? 'no price' : money(p.price)} · ${esc(p.vendors?.store_name)} · ${esc(p.categories?.name || 'no category')} · submitted ${ago(p.created_at)}</span><div class="small">${esc((p.description || '').slice(0, 140))}</div>${p.review_note ? `<div class="small" style="color:var(--danger)">Note: ${esc(p.review_note)}</div>` : ''}</div></div>${diff(p)}
+    return `<div class="rv" data-fid="${p.id}"><div class="row" style="align-items:flex-start;flex-wrap:nowrap"><img src="${img('product-images', im, true)}" width="64" height="64" style="object-fit:cover;border-radius:8px;flex:none" alt=""><div class="grow"><b>${esc(p.title || 'Untitled draft')}</b> <span class="badge ${p.status === 'approved' ? 'ok' : p.status === 'pending' ? '' : 'bad'}">${p.status}</span>${p.product_images?.length ? '' : ' <span class="badge bad">No image</span>'}${p.is_featured ? ' <span class="badge teal">Featured</span>' : ''}${edited(p) ? ' <span class="badge">Edited ' + ago(p.updated_at) + '</span>' : ''}<br><span class="small muted">${p.price == null ? 'no price' : money(p.price)} · ${esc(p.vendors?.store_name)} · ${esc(p.categories?.name || 'no category')} · submitted ${ago(p.created_at)}</span><div class="small">${esc((p.description || '').slice(0, 140))}</div>${p.review_note ? `<div class="small" style="color:var(--danger)">Note: ${esc(p.review_note)}</div>` : ''}</div></div>${diff(p)}
     <div class="row" style="margin-top:8px">${p.pending_changes ? `<button class="btn sm" data-ch="1" data-id="${p.id}">Approve changes</button><button class="btn sm danger" data-ch="0" data-id="${p.id}">Reject changes…</button>` : ''}${['pending', 'rejected', 'hidden'].includes(p.status) ? `<button class="btn sm" data-s="approved" data-id="${p.id}">Approve</button>` : ''}${p.status === 'pending' ? `<button class="btn sm danger" data-s="rejected" data-id="${p.id}">Reject…</button>` : ''}${p.status === 'approved' ? `<button class="btn sm ghost" data-s="hidden" data-id="${p.id}">Hide…</button><button class="btn sm ghost" data-ft="${p.id}" data-v="${!p.is_featured}">${p.is_featured ? 'Remove from featured' : 'Feature'}</button>` : ''}<a class="btn sm ghost" href="/shop/${esc(p.vendors?.slug)}/${esc(p.slug)}" data-link>Open</a>${['rejected', 'hidden'].includes(p.status) ? `<button class="btn sm danger" data-d="${p.id}">Delete</button>` : ''}</div></div>`; }).join('') : '<div class="empty">Nothing in this queue.</div>');
   const ask = (q) => { const r = prompt(q); if (r === null) return null; if (r.trim().length < 3) { toast('A reason of at least 3 characters is required.'); return null; } return r.trim(); };
   $$('[data-f]', el).forEach(b => b.onclick = () => { pFilter = b.dataset.f; products(el); });
