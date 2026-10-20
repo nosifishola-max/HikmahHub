@@ -125,3 +125,9 @@ label{margin:9px 0 3px;font-size:.84rem}
 .nitem.unread{background:#f1f8f3}.nitem .dot{width:8px;height:8px;border-radius:50%;background:var(--green2);flex:none;margin-top:7px}.nitem.read .dot{background:transparent}
 .nitem .ico{font-size:1.15rem;flex:none}.nitem b{display:block;font-size:.88rem}.nitem span.t{font-size:.8rem;color:var(--muted)}
 .hl{outline:3px solid var(--gold);outline-offset:2px;border-radius:12px}
+
+/* ---- v1.6: campus photo behind the homepage hero (decorative; dark green overlay keeps text readable; gradient + green still show if the photo fails) ---- */
+.hero{background-color:var(--green);background-image:linear-gradient(180deg,rgba(9,52,31,.9) 0%,rgba(15,74,44,.8) 100%),url('/assets/hero-campus-720.webp');background-size:cover;background-position:center 35%;background-repeat:no-repeat;padding:20px 0 22px}
+.hero h1,.hero p{text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.hero input{min-height:46px}.hero .btn{min-height:46px}
+@media(min-width:700px){.hero{background-image:linear-gradient(90deg,rgba(9,52,31,.94) 0%,rgba(15,74,44,.82) 55%,rgba(15,74,44,.5) 100%),url('/assets/hero-campus-1280.webp');background-position:center 40%;padding:32px 0 36px}}

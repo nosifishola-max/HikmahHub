@@ -1,6 +1,155 @@
-{"cleanUrls":false,
- "rewrites":[
-  {"source":"/shop/:store/:product","has":[{"type":"header","key":"user-agent","value":".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Googlebot).*"}],"destination":"/api/og?store=:store&product=:product"},
-  {"source":"/shop/:store","has":[{"type":"header","key":"user-agent","value":".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Googlebot).*"}],"destination":"/api/og?store=:store"},
-  {"source":"/((?!api/|assets/|css/|js/|sw\\.js|manifest\\.webmanifest|offline\\.html|robots\\.txt|sitemap\\.xml).*)","destination":"/index.html"}],
- "headers":[{"source":"/sw.js","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}
+{
+ "cleanUrls": false,
+ "rewrites": [
+  {
+   "source": "/marketplace",
+   "has": [
+    {
+     "type": "header",
+     "key": "user-agent",
+     "value": ".*(WhatsApp|whatsapp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Googlebot|bingbot|Applebot|SkypeUriPreview|Pinterest|redditbot|Embedly|Signal|Viber|Mastodon|vkShare|Iframely).*"
+    }
+   ],
+   "destination": "/api/og?kind=marketplace"
+  },
+  {
+   "source": "/marketplace",
+   "has": [
+    {
+     "type": "query",
+     "key": "og"
+    }
+   ],
+   "destination": "/api/og?kind=marketplace"
+  },
+  {
+   "source": "/deals",
+   "has": [
+    {
+     "type": "header",
+     "key": "user-agent",
+     "value": ".*(WhatsApp|whatsapp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Googlebot|bingbot|Applebot|SkypeUriPreview|Pinterest|redditbot|Embedly|Signal|Viber|Mastodon|vkShare|Iframely).*"
+    }
+   ],
+   "destination": "/api/og?kind=deals"
+  },
+  {
+   "source": "/deals",
+   "has": [
+    {
+     "type": "query",
+     "key": "og"
+    }
+   ],
+   "destination": "/api/og?kind=deals"
+  },
+  {
+   "source": "/events",
+   "has": [
+    {
+     "type": "header",
+     "key": "user-agent",
+     "value": ".*(WhatsApp|whatsapp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Googlebot|bingbot|Applebot|SkypeUriPreview|Pinterest|redditbot|Embedly|Signal|Viber|Mastodon|vkShare|Iframely).*"
+    }
+   ],
+   "destination": "/api/og?kind=events"
+  },
+  {
+   "source": "/events",
+   "has": [
+    {
+     "type": "query",
+     "key": "og"
+    }
+   ],
+   "destination": "/api/og?kind=events"
+  },
+  {
+   "source": "/events/:slug",
+   "has": [
+    {
+     "type": "header",
+     "key": "user-agent",
+     "value": ".*(WhatsApp|whatsapp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Googlebot|bingbot|Applebot|SkypeUriPreview|Pinterest|redditbot|Embedly|Signal|Viber|Mastodon|vkShare|Iframely).*"
+    }
+   ],
+   "destination": "/api/og?kind=event&slug=:slug"
+  },
+  {
+   "source": "/events/:slug",
+   "has": [
+    {
+     "type": "query",
+     "key": "og"
+    }
+   ],
+   "destination": "/api/og?kind=event&slug=:slug"
+  },
+  {
+   "source": "/shop/:store",
+   "has": [
+    {
+     "type": "header",
+     "key": "user-agent",
+     "value": ".*(WhatsApp|whatsapp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Googlebot|bingbot|Applebot|SkypeUriPreview|Pinterest|redditbot|Embedly|Signal|Viber|Mastodon|vkShare|Iframely).*"
+    }
+   ],
+   "destination": "/api/og?kind=store&store=:store"
+  },
+  {
+   "source": "/shop/:store",
+   "has": [
+    {
+     "type": "query",
+     "key": "og"
+    }
+   ],
+   "destination": "/api/og?kind=store&store=:store"
+  },
+  {
+   "source": "/shop/:store/:product",
+   "has": [
+    {
+     "type": "header",
+     "key": "user-agent",
+     "value": ".*(WhatsApp|whatsapp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Googlebot|bingbot|Applebot|SkypeUriPreview|Pinterest|redditbot|Embedly|Signal|Viber|Mastodon|vkShare|Iframely).*"
+    }
+   ],
+   "destination": "/api/og?kind=product&store=:store&product=:product"
+  },
+  {
+   "source": "/shop/:store/:product",
+   "has": [
+    {
+     "type": "query",
+     "key": "og"
+    }
+   ],
+   "destination": "/api/og?kind=product&store=:store&product=:product"
+  },
+  {
+   "source": "/((?!api/|assets/|css/|js/|sw\\.js|manifest\\.webmanifest|offline\\.html|robots\\.txt|sitemap\\.xml).*)",
+   "destination": "/index.html"
+  }
+ ],
+ "headers": [
+  {
+   "source": "/sw.js",
+   "headers": [
+    {
+     "key": "Cache-Control",
+     "value": "no-cache"
+    }
+   ]
+  },
+  {
+   "source": "/assets/(.*)",
+   "headers": [
+    {
+     "key": "Cache-Control",
+     "value": "public, max-age=86400"
+    }
+   ]
+  }
+ ]
+}

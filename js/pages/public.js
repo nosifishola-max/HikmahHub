@@ -5,6 +5,7 @@ import { go, current, onLeave } from '../router.js';
 import { mountPromos } from './promos.js';
 import { cached, invalidate, q } from '../cache.js';
 import { watch, onResume } from '../live.js';
+import { getSeed } from '../seed.js';
 const openShareSheet = async o => (await import('../share.js')).openShareSheet(o);   // share code loads only when someone taps Share
 const getCats = () => cached('cats:top', 600000, () => q(sb.from('categories').select('id,name,slug,parent_id').is('parent_id', null).eq('is_active', true).order('sort_order')));
 
@@ -21,7 +22,7 @@ const rankList = (items, line) => items.length ? `<ol class="rank">${items.map((
 const feedHtml = (tr, latest, tv) => `<div class="sec"><div class="head"><h2>HikmahHub Weekly</h2><a href="/trending" data-link>See all</a></div>
   <div style="display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))"><div class="panel"><h3>Top vendors</h3>${rankList(tv || [], v => `<a href="/shop/${esc(v.slug)}" data-link>${esc(v.store_name)}</a>`)}</div>
   <div class="panel"><h3>Trending products</h3>${rankList(tr || [], t => `<a href="/shop/${esc(t.store_slug)}/${esc(t.slug)}" data-link>${esc(t.title)}</a>`)}</div></div></div>
-  <div class="sec"><div class="head"><h2>Latest listings</h2><a href="/marketplace" data-link>Browse all</a></div>${latest?.length ? `<div class="grid">${latest.map(x => card(x)).join('')}</div>` : emptyReq('')}</div>`;
+  <div class="sec"><div class="head"><h2>Fresh listings</h2><a href="/marketplace" data-link>Browse all</a></div>${latest?.length ? `<div class="grid">${latest.map(x => card(x)).join('')}</div>` : emptyReq('')}</div>`;
 const anonHtml = data => signinCta() + `<div class="sec"><div class="head"><h2>Featured on HikmahHub</h2></div>${data?.length ? `<div class="grid">${data.map(x => card(x)).join('')}</div>` : '<p class="muted">Featured listings will show here.</p>'}</div>
   <div class="sec"><div class="panel"><h3>Sell on campus</h3><p class="muted">Student with something to sell? Create an account, then apply to open your free store.</p><a class="btn ghost" href="/login?mode=signup" data-link>Create account</a></div></div>`;
 
@@ -34,7 +35,7 @@ export async function home(app) {
   mountPromos($('#promos'));
   getCats().then(cats => { if (t === current() && $('#cats')) $('#cats').innerHTML = cats.map(c => `<a href="/marketplace?cat=${c.id}" data-link>${esc(c.name)}</a>`).join(''); }).catch(() => { });   // never blocks the feed
   const load = () => state.user
-    ? Promise.all([cached(`home:tr:${sc}`, 120000, () => q(sb.rpc('get_trending_products', { p_days: 7, p_limit: 4 }))), cached(`home:latest:${sc}`, 60000, () => q(sb.rpc('search_products', { p_limit: 8 }))), cached(`home:tv:${sc}`, 120000, () => q(sb.rpc('get_top_vendors', { p_days: 7, p_limit: 3 })))])   // one parallel round
+    ? Promise.all([cached(`home:tr:${sc}`, 120000, () => q(sb.rpc('get_trending_products', { p_days: 7, p_limit: 4 }))), cached(`home:latest:${sc}:${getSeed()}`, 60000, () => q(sb.rpc('search_products', { p_limit: 8, p_sort: 'mixed', p_seed: getSeed() }))), cached(`home:tv:${sc}`, 120000, () => q(sb.rpc('get_top_vendors', { p_days: 7, p_limit: 3 })))])   // one parallel round
     : cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*')));
   const draw = async () => { try { const r = await load(); if (t !== current()) return; $('#feed').innerHTML = state.user ? feedHtml(...r) : anonHtml(r); } catch (e) { if (t === current() && !$('#feed .grid')) $('#feed').innerHTML = errBox(e); } };
   await draw();
@@ -43,28 +44,29 @@ export async function home(app) {
 
 export async function marketplace(app, _, qs) {
   setMeta('Marketplace', 'Browse products and services from verified student vendors.'); const t = current(), sc = scope();
-  const f = { q: qs.get('q') || '', cat: qs.get('cat') || '', type: qs.get('type') || '', sort: qs.get('sort') || 'newest' };
+  const f = { q: qs.get('q') || '', cat: qs.get('cat') || '', type: qs.get('type') || '', sort: qs.get('sort') || 'mixed' };
   const catOpts = cats => `<option value="">All categories</option>${(cats || []).map(c => `<option value="${c.id}" ${c.id === f.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}`;
   app.innerHTML = `<div class="wrap pad"><h1>Marketplace</h1>
     <form id="f" class="row" role="search"><input class="grow" name="q" type="search" value="${esc(f.q)}" placeholder="Search products, services, stores" aria-label="Search">
     <button class="btn">Search</button></form>
     <div class="row" style="margin:8px 0"><select id="cat" aria-label="Category">${catOpts([])}</select>
     <select id="type" aria-label="Type"><option value="">Products and services</option><option value="product" ${f.type === 'product' ? 'selected' : ''}>Products</option><option value="service" ${f.type === 'service' ? 'selected' : ''}>Services</option></select>
-    <select id="sort" aria-label="Sort"><option value="newest">Newest</option><option value="oldest" ${f.sort === 'oldest' ? 'selected' : ''}>Oldest</option><option value="price_asc" ${f.sort === 'price_asc' ? 'selected' : ''}>Price: low to high</option><option value="price_desc" ${f.sort === 'price_desc' ? 'selected' : ''}>Price: high to low</option></select></div>
+    <select id="sort" aria-label="Sort"><option value="mixed" ${f.sort === 'mixed' ? 'selected' : ''}>Recommended</option><option value="newest" ${f.sort === 'newest' ? 'selected' : ''}>Newest</option><option value="oldest" ${f.sort === 'oldest' ? 'selected' : ''}>Oldest</option><option value="price_asc" ${f.sort === 'price_asc' ? 'selected' : ''}>Price: low to high</option><option value="price_desc" ${f.sort === 'price_desc' ? 'selected' : ''}>Price: high to low</option></select></div>
     <div id="newpill" hidden style="position:sticky;top:54px;z-index:5;text-align:center;margin-bottom:6px"><button class="btn sm gold" id="np">New listings available. Tap to refresh</button></div>
     <div id="res">${skeleton(8)}</div><div class="row" style="justify-content:center;margin-top:10px"><button id="more" class="btn ghost" hidden>Load more</button></div></div>`;
   getCats().then(c => { if (t === current() && $('#cat')) $('#cat').innerHTML = catOpts(c); }).catch(() => { });   // the list renders without waiting for categories
   const apply = () => go(`/marketplace?${new URLSearchParams({ q: $('#f [name=q]').value.trim(), cat: $('#cat').value, type: $('#type').value, sort: $('#sort').value })}`);
   $('#f').onsubmit = e => { e.preventDefault(); apply(); }; ['cat', 'type', 'sort'].forEach(i => $('#' + i).onchange = apply);
   if (!state.user) { try { const data = await cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*'))); if (t === current()) $('#res').innerHTML = signinCta() + (data?.length ? `<div class="grid">${data.map(x => card(x)).join('')}</div>` : ''); } catch (e) { if (t === current()) $('#res').innerHTML = errBox(e); } return; }
-  let off = 0; const size = 24;
-  const page = o => q(sb.rpc('search_products', { p_q: f.q || null, p_category: f.cat || null, p_type: f.type || null, p_sort: f.sort, p_limit: size, p_offset: o }));
+  let off = 0; const size = 24, seen = new Set();
+  const page = o => q(sb.rpc('search_products', { p_q: f.q || null, p_category: f.cat || null, p_type: f.type || null, p_sort: f.sort, p_seed: getSeed(), p_limit: size, p_offset: o }));
   const load = async first => {
     try {
-      const data = first ? await cached(`mk:${sc}:${qs.toString()}`, 30000, async () => { const d = await page(0); if (f.q) sb.rpc('record_search', { p_query: f.q, p_results: d.length }); return d; }) : await page(off);   // search is only recorded on real network fetches
+      const data = first ? await cached(`mk:${sc}:${getSeed()}:${qs.toString()}`, 30000, async () => { const d = await page(0); if (f.q) sb.rpc('record_search', { p_query: f.q, p_results: d.length }); return d; }) : await page(off);   // search is only recorded on real network fetches
       if (t !== current()) return;
-      if (first) { $('#res').innerHTML = data.length ? '<div class="grid" id="g"></div>' : emptyReq(f.q); $('#newpill').hidden = true; }
-      if (data.length) $('#g').insertAdjacentHTML('beforeend', data.map(x => card(x)).join(''));
+      if (first) { seen.clear(); $('#res').innerHTML = data.length ? '<div class="grid" id="g"></div>' : emptyReq(f.q); $('#newpill').hidden = true; }
+      const add = data.filter(x => !seen.has(x.id)); add.forEach(x => seen.add(x.id));            // never show the same product twice
+      if (add.length) $('#g').insertAdjacentHTML('beforeend', add.map(x => card(x)).join(''));
       $('#more').hidden = data.length < size; off += size;
     } catch (e) { if (t === current() && first) $('#res').innerHTML = errBox(e); else toast('Could not load more. Check your connection.'); }
   };
@@ -103,7 +105,7 @@ export async function product(app, [store, slug]) {
   $('#wa').onclick = () => { sb.rpc('record_whatsapp_click', { p_vendor: v.id, p_product: p.id }); window.open(waLink(v.whatsapp_number, msg), '_blank', 'noopener'); };
   $('#sv').onclick = async () => { const { data, error } = await sb.rpc('toggle_save', { p_product: p.id }); error ? toast(error.message) : toast(data ? 'Saved' : 'Removed from saved'); };
   $('#rp').onsubmit = async e => { e.preventDefault(); const d = formData(e.target); const { error } = await sb.from('reports').insert({ reporter_id: state.user.id, target_type: 'product', target_id: p.id, reason: d.reason, details: d.details || null }); toast(error ? error.message : 'Report sent. Thank you.'); if (!error) e.target.reset(); };
-  const rel = await sb.rpc('search_products', { p_category: p.category_id || null, p_limit: 5 });
+  const rel = await sb.rpc('search_products', { p_category: p.category_id || null, p_limit: 5, p_sort: 'mixed', p_seed: getSeed() });
   const r = (rel.data || []).filter(x => x.id !== p.id).slice(0, 4);
   if (r.length) $('#rel').innerHTML = `<div class="sec"><h2>More like this</h2><div class="grid">${r.map(card).join('')}</div></div>`;
 }
