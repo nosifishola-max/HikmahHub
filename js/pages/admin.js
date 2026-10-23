@@ -194,10 +194,19 @@ async function branding(el) {
   el.innerHTML = `<div class="stats"><div class="stat"><b>${st.branded}</b>Branded</div><div class="stat"><b>${st.failed}</b>Failed</div><div class="stat"><b>${st.legacy}</b>Legacy</div><div class="stat"><b>v${st.version}</b>Design version</div></div>
   <div class="panel" style="margin-top:12px"><div class="row"><h2 class="grow">Needs attention (${rows.length})</h2><button id="rg" class="btn sm" ${rows.some(r => r.original_path) ? '' : 'disabled'}>Regenerate (up to 25)</button><button id="bump" class="btn sm ghost">New design version</button></div><p id="bm" class="small muted" aria-live="polite">Changing the badge design? Edit js/branding.js, then press "New design version" and regenerate.</p>
   ${table(['Image', 'Listing', 'Reason', 'Error'], rows.map(r => `<tr><td><img src="${img('product-images', r.path, true)}" width="48" height="48" style="object-fit:cover;border-radius:6px" alt=""></td><td>${esc(r.title)}<br><span class="small muted">${esc(r.store_name)}</span></td><td>${R[r.reason] || r.reason}</td><td class="small">${esc(r.brand_error || '')}</td></tr>`))}</div>`;
-  $('#rg').onclick = async () => { const ver = await currentVersion(); let n = 0, f = 0; const batch = rows.filter(r => r.original_path).slice(0, 25);
-    for (const [i, r] of batch.entries()) { $('#bm').textContent = `Regenerating ${i + 1} of ${batch.length}…`; try { await regenerate({ ...r, id: r.image_id }, r.store_id, ver); n++; } catch (e) { f++; await sb.from('product_images').update({ brand_status: 'failed', brand_error: String(e.message || e).slice(0, 300) }).eq('id', r.image_id); } }
-    toast(`${n} regenerated, ${f} failed`); again(); };
-  $('#bump').onclick = async () => { if (!confirm('Mark every branded image as outdated? You will need to regenerate them in batches.')) return; if (await run(sb.from('site_settings').update({ value: st.version + 1, updated_at: new Date().toISOString() }).eq('key', 'brand_version'), 'Design version increased')) again(); };
+  let stop = false;
+  $('#rg').textContent = 'Regenerate all'; $('#rg').insertAdjacentHTML('afterend', '<button id="stopr" class="btn sm ghost" hidden>Stop</button>'); $('#stopr').onclick = () => { stop = true; };
+  $('#rg').onclick = async () => {   // works through ALL outdated images, 50 at a time, from the private originals; safe to stop and resume
+    stop = false; $('#rg').disabled = true; $('#stopr').hidden = false; const ver = await currentVersion(), done = new Set(); let n = 0, f = 0;
+    for (;;) {
+      const { data: batch, error } = await sb.rpc('admin_branding_report', { p_limit: 50 }); if (error) { toast(error.message); break; }
+      const todo = (batch || []).filter(r => r.original_path && !done.has(r.image_id)); if (!todo.length || stop) break;
+      for (const r of todo) { if (stop) break; done.add(r.image_id); $('#bm').textContent = `Regenerating… ${n + f} done${f ? `, ${f} failed` : ''}`;
+        try { await regenerate({ ...r, id: r.image_id }, r.store_id, ver); n++; } catch (e) { f++; await sb.from('product_images').update({ brand_status: 'failed', brand_error: String(e.message || e).slice(0, 300) }).eq('id', r.image_id); } }
+    }
+    toast(`${n} regenerated${f ? `, ${f} failed` : ''}${stop ? ' (stopped)' : ''}`); again();
+  };
+  $('#bump').onclick = async () => { if (!confirm('Mark every branded image as outdated? You will then regenerate them.')) return; if (await run(sb.from('site_settings').upsert({ key: 'brand_version', value: st.version + 1, updated_at: new Date().toISOString() }, { onConflict: 'key' }), 'Design version increased')) again(); };
 }
 
 // ---------- Promotions ----------

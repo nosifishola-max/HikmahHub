@@ -131,3 +131,38 @@ label{margin:9px 0 3px;font-size:.84rem}
 .hero h1,.hero p{text-shadow:0 1px 3px rgba(0,0,0,.4)}
 .hero input{min-height:46px}.hero .btn{min-height:46px}
 @media(min-width:700px){.hero{background-image:linear-gradient(90deg,rgba(9,52,31,.94) 0%,rgba(15,74,44,.82) 55%,rgba(15,74,44,.5) 100%),url('/assets/hero-campus-1280.webp');background-position:center 40%;padding:32px 0 36px}}
+
+/* ---- v1.8: product gallery, full-screen viewer, like button ---- */
+.gx{max-width:520px}.gx:empty{aspect-ratio:1/1;background:#eef2ea;border-radius:12px}
+.g-wrap{position:relative;border-radius:12px;overflow:hidden;background:#eef2ea}
+.g-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;outline-offset:-3px}.g-track::-webkit-scrollbar{display:none}
+.g-slide{flex:0 0 100%;scroll-snap-align:center;scroll-snap-stop:always;aspect-ratio:1/1;position:relative;background:#eef2ea center/contain no-repeat;cursor:zoom-in}
+.g-slide img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .28s ease;-webkit-user-drag:none;user-select:none}.g-slide img.ok{opacity:1}
+.g-slide.bad::after{content:"Image unavailable";position:absolute;inset:auto 0 40%;text-align:center;color:var(--muted);font-size:.85rem}
+.g-empty{aspect-ratio:1/1;display:grid;place-items:center;color:var(--muted)}
+.g-count{position:absolute;right:8px;top:8px;background:rgba(0,0,0,.55);color:#fff;font-size:.78rem;font-weight:700;padding:2px 9px;border-radius:99px;pointer-events:none}
+.g-nav{display:none;position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;border-radius:50%;background:rgba(255,255,255,.92);box-shadow:0 1px 6px rgba(0,0,0,.25);font-size:1.5rem;line-height:1;cursor:pointer;color:var(--ink)}.g-prev{left:8px}.g-next{right:8px}
+@media(hover:hover) and (min-width:800px){.g-nav{display:block}}
+.g-thumbs{display:flex;gap:6px;overflow-x:auto;margin-top:6px;padding:2px;scrollbar-width:none}.g-thumbs::-webkit-scrollbar{display:none}
+.g-th{flex:none;width:56px;height:56px;padding:0;border:2px solid transparent;border-radius:9px;background:#fff;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s}
+.g-th img{width:100%;height:100%;object-fit:cover;display:block}.g-th[aria-selected=true]{border-color:var(--green2);box-shadow:0 0 0 1px var(--green2);transform:scale(1.04)}
+.like{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 13px;border:1.5px solid var(--line);border-radius:99px;background:#fff;color:var(--ink);font:600 .9rem inherit;font-family:inherit;cursor:pointer;flex:none}
+.like svg{transition:transform .2s}.like[aria-pressed=true]{color:#c8284f;border-color:#f1b5c4;background:#fff2f5}.like.pop svg{animation:likepop .4s ease}
+@keyframes likepop{0%{transform:scale(1)}40%{transform:scale(1.4)}100%{transform:scale(1)}}
+.vw{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.95);display:flex;flex-direction:column;overscroll-behavior:contain;color:#fff}
+.vw-top{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;justify-content:space-between;align-items:center;padding:calc(8px + env(safe-area-inset-top)) 10px 8px}
+.vw-count{background:rgba(255,255,255,.16);padding:4px 12px;border-radius:99px;font-weight:700;font-size:.9rem}
+.vw-x{width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:1.2rem;cursor:pointer}.vw-x:hover,.vw-nav:hover{background:rgba(255,255,255,.3)}
+.vw-stage{position:absolute;inset:0;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.vw-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform-origin:center;will-change:transform;-webkit-user-drag:none;touch-action:none}
+.vw-img.bad{opacity:.4}
+.vw-img.in-r{animation:vwInR .22s ease both}.vw-img.in-l{animation:vwInL .22s ease both}.vw-img.out-l{animation:vwOutL .22s ease both}.vw-img.out-r{animation:vwOutR .22s ease both}
+@keyframes vwInR{from{transform:translateX(60px);opacity:0}}@keyframes vwInL{from{transform:translateX(-60px);opacity:0}}@keyframes vwOutL{to{transform:translateX(-60px);opacity:0}}@keyframes vwOutR{to{transform:translateX(60px);opacity:0}}
+.vw-nav{display:none;position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:48px;height:48px;border:0;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:1.8rem;cursor:pointer}.vw-prev{left:12px}.vw-next{right:12px}
+@media(hover:hover) and (min-width:800px){.vw-nav{display:block}}
+.vw-hint{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;font-size:.8rem;color:rgba(255,255,255,.75);z-index:3;pointer-events:none;transition:opacity .6s}.vw-hint.gone{opacity:0}
+@media(prefers-reduced-motion:reduce){.g-slide img,.g-th,.like svg{transition:none}.like.pop svg,.vw-img{animation:none!important}}
+
+/* ---- v1.8 fixes: .pad must not remove the side padding of .wrap; viewer background fully opaque ---- */
+.pad{padding-top:14px;padding-bottom:14px}
+.vw{background:#000}

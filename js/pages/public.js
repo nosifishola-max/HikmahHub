@@ -89,21 +89,34 @@ export async function product(app, [store, slug]) {
   const v = p.vendors, url = `/shop/${v.slug}/${p.slug || slug}`;
   setMeta(p.title, `${money(p.price)} · ${v.store_name} on HikmahHub`, imgs[0] ? img('product-images', imgs[0]) : undefined);
   const msg = `Hello, I'm interested in ${p.title} on HikmahHub.\n${location.origin}${url}`;
-  app.innerHTML = `<div class="wrap pad"><div class="pd"><div class="gal"><img id="main" src="${img('product-images', imgs[0])}" alt="${esc(p.title)}"><div class="thumbs">${imgs.map(i => `<img loading="lazy" src="${img('product-images', i, true)}" alt="" width="64" height="64" data-s="${img('product-images', i)}">`).join('')}</div></div>
-  <div><h1>${esc(p.title)}</h1><p class="price" style="font-size:1.5rem;margin:.2rem 0">${money(p.price)}</p>
+  app.innerHTML = `<div class="wrap pad"><div class="pd"><div class="gx" id="gx"></div>
+  <div><h1>${esc(p.title)}</h1><div class="row" style="align-items:center;gap:8px"><p class="price grow" style="font-size:1.5rem;margin:.2rem 0">${money(p.price)}</p><button type="button" id="like" class="like" aria-pressed="false" aria-label="Like this product"></button></div>
   <p><span class="badge ${p.availability === 'available' ? 'ok' : 'bad'}">${esc(String(p.availability).replace('_', ' '))}</span> ${p.categories ? `<span class="badge teal">${esc(p.categories.name)}</span>` : ''}</p>
   <p style="white-space:pre-wrap">${esc(p.description || '')}</p>
   <div class="panel"><a href="/shop/${esc(v.slug)}" data-link><b>${esc(v.store_name)}</b></a> ${v.is_verified ? '<span class="badge ok">✓ Verified Student Vendor</span>' : ''}<div class="small muted">${esc(v.campus_location || '')}</div><div class="small muted">Verification means the vendor was reviewed and approved by HikmahHub. HikmahHub does not guarantee transactions between buyers and vendors.</div></div>
   <div class="row">${loggedIn ? `<button id="wa" class="btn wa grow">Chat seller on WhatsApp</button>` : `<a class="btn grow" href="/login" data-link>Sign in to contact seller</a>`}
-  <button id="sh" class="btn ghost">Share</button>${loggedIn ? `<button id="sv" class="btn ghost">Save</button>` : ''}</div>
+  <button id="sh" class="btn ghost">Share</button></div>
   ${loggedIn ? `<details style="margin-top:14px"><summary>Report this listing</summary><form id="rp"><label>Reason<select name="reason"><option value="suspicious">Suspicious</option><option value="scam">Scam or fraud concern</option><option value="misleading">Misleading information</option><option value="inappropriate">Inappropriate content</option><option value="fake">Fake product or service</option><option value="prohibited">Prohibited item</option><option value="other">Other</option></select></label><label>Details<textarea name="details" maxlength="1000"></textarea></label><button class="btn sm danger" style="margin-top:8px">Send report</button></form></details>` : ''}</div></div>
   <div id="rel"></div></div>`;
-  $$('.thumbs img').forEach(t => t.onclick = () => $('#main').src = t.dataset.s);
+  const items = imgs.map(pth => ({ src: img('product-images', pth), thumb: img('product-images', pth, true) })), t0 = current();
+  import('../gallery.js').then(({ mountGallery, openViewer }) => {                       // gallery code loads after the page text
+    if (t0 !== current() || !$('#gx')) return; let viewer = null; onLeave(() => viewer?.close(true));
+    const gal = mountGallery($('#gx'), items, { alt: p.title, onOpen: k => { viewer = openViewer(items, k, { onClose: j => gal.go(j, true) }); } });
+  });
+  const heart = on => `<svg viewBox="0 0 24 24" width="20" height="20" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 000-7.8z"/></svg>`;
+  import('../likes.js').then(({ createLikes, likeLabel }) => {
+    const btn = $('#like'); if (!btn || t0 !== current()) return; let pop = false;
+    const ctl = createLikes({ setLike: async v => { const { data, error } = await sb.rpc('set_product_like', { p_product: p.id, p_like: v }); if (error) throw error; return data[0]; },
+      onChange: s => { btn.setAttribute('aria-pressed', String(s.liked)); btn.setAttribute('aria-label', s.liked ? 'Unlike this product' : 'Like this product'); btn.innerHTML = `${heart(s.liked)}<span aria-live="polite">${likeLabel(s.count)}</span>`;
+        if (pop) { btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop'); pop = false; } if (s.error) toast('Could not update your like. Check your connection and try again.'); } });
+    ctl.reset({ count: 0, liked: false });
+    sb.rpc('get_product_likes', { p_product: p.id }).then(({ data }) => { if (t0 === current() && data?.[0]) ctl.reset({ count: data[0].like_count, liked: data[0].liked }); });   // one call: total + whether you liked it
+    btn.onclick = () => { if (!loggedIn) { toast('Sign in to like products'); go('/login?next=' + encodeURIComponent(location.pathname)); return; } pop = !ctl.state.liked; ctl.toggle(); };
+  });
   $('#sh').onclick = () => openShareSheet({ title: p.title, price: p.price, store: v.store_name, path: url, imageUrl: imgs[0] ? img('product-images', imgs[0]) : null });
   sb.rpc('record_product_view', { p_product: p.id });
   if (!loggedIn) return;
   $('#wa').onclick = () => { sb.rpc('record_whatsapp_click', { p_vendor: v.id, p_product: p.id }); window.open(waLink(v.whatsapp_number, msg), '_blank', 'noopener'); };
-  $('#sv').onclick = async () => { const { data, error } = await sb.rpc('toggle_save', { p_product: p.id }); error ? toast(error.message) : toast(data ? 'Saved' : 'Removed from saved'); };
   $('#rp').onsubmit = async e => { e.preventDefault(); const d = formData(e.target); const { error } = await sb.from('reports').insert({ reporter_id: state.user.id, target_type: 'product', target_id: p.id, reason: d.reason, details: d.details || null }); toast(error ? error.message : 'Report sent. Thank you.'); if (!error) e.target.reset(); };
   const rel = await sb.rpc('search_products', { p_category: p.category_id || null, p_limit: 5, p_sort: 'mixed', p_seed: getSeed() });
   const r = (rel.data || []).filter(x => x.id !== p.id).slice(0, 4);
@@ -186,9 +199,9 @@ export async function request(app, _, qs) {
 }
 
 export async function saved(app) {
-  setMeta('Saved', 'Products you saved');
-  if (!state.user) { app.innerHTML = `<div class="wrap pad"><h1>Saved</h1>${signinCta()}</div>`; return; }
+  setMeta('Liked products', 'Products you liked');
+  if (!state.user) { app.innerHTML = `<div class="wrap pad"><h1>Liked products</h1>${signinCta()}</div>`; return; }
   const { data } = await sb.from('product_saves').select('products(id,title,slug,price,availability,vendors(store_name,slug,is_verified),product_images(path,sort_order))').order('created_at', { ascending: false });
   const list = (data || []).map(x => x.products).filter(Boolean).map(p => ({ ...p, store_name: p.vendors.store_name, store_slug: p.vendors.slug, is_verified: p.vendors.is_verified, image_path: p.product_images?.sort((a, b) => a.sort_order - b.sort_order)[0]?.path }));
-  app.innerHTML = `<div class="wrap pad"><h1>Saved</h1>${list.length ? `<div class="grid">${list.map(card).join('')}</div>` : `<div class="empty"><h3>Nothing saved yet</h3><p class="muted">Tap Save on a product to keep it here.</p><a class="btn" href="/marketplace" data-link>Browse marketplace</a></div>`}</div>`;
+  app.innerHTML = `<div class="wrap pad"><h1>Liked products</h1>${list.length ? `<div class="grid">${list.map(card).join('')}</div>` : `<div class="empty"><h3>Nothing saved yet</h3><p class="muted">Tap Save on a product to keep it here.</p><a class="btn" href="/marketplace" data-link>Browse marketplace</a></div>`}</div>`;
 }

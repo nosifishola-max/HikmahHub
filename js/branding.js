@@ -3,7 +3,7 @@ import { sb } from './supabase.js';
 import { PROFILE, encode, sha256, put, thumbPath, validImage } from './util.js';
 
 const MAIN = { max: 1280, limit: 250 * 1024 }, THUMB = { max: 400, limit: 60 * 1024 };
-let logoP; const logo = () => logoP ??= fetch('/assets/logo.png').then(r => r.blob()).then(b => createImageBitmap(b));
+let logoP; const logo = () => logoP ??= fetch('/assets/logo-wm.png').then(r => r.blob()).then(b => createImageBitmap(b));
 export const cleanName = s => String(s ?? '').replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
 const blobOf = async (c, q) => { let b = await new Promise(r => c.toBlob(r, 'image/webp', q)); if (b && b.type !== 'image/webp') b = await new Promise(r => c.toBlob(r, 'image/jpeg', q)); return b; };
 const extOf = b => b.type === 'image/webp' ? 'webp' : 'jpg';
@@ -15,18 +15,17 @@ export async function trustedStoreName(vendorId) {
 }
 export async function currentVersion() { const { data } = await sb.rpc('current_brand_version'); return data || 1; }
 
-// Corner badge: white pill with the HikmahHub logo and the store name. Sized from the shorter side, never stretches the photo.
+// Watermark (design v2): a small white HikmahHub logo with the store name under it, bottom-right, soft shadow, NO box. Sized from the shorter side so it stays
+// subtle on every image shape. Baked into the delivered image (so downloads and shares carry it); the original master is kept private and untouched.
 function drawBadge(ctx, w, h, store, lg) {
-  const base = Math.min(w, h), lh = Math.max(22, base * 0.055), lw = lh * (lg.width / lg.height), fs = Math.max(12, base * 0.032), pad = Math.max(8, base * 0.02), m = Math.max(8, base * 0.03);
-  ctx.font = `700 ${fs}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
-  let t = store; const maxW = Math.max(lw, w * 0.6 - pad * 2);
-  while (t.length > 1 && ctx.measureText(t).width > maxW) t = t.slice(0, -1);
-  if (t !== store) t = t.trimEnd() + '…';
-  const tw = ctx.measureText(t).width, bw = Math.max(lw, tw) + pad * 2, bh = pad * 1.6 + lh + fs * 1.2, x = m, y = h - m - bh, r = pad;
-  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = base * 0.015; ctx.fillStyle = 'rgba(255,255,255,.94)';
-  ctx.beginPath(); ctx.roundRect(x, y, bw, bh, r); ctx.fill(); ctx.restore();
-  ctx.drawImage(lg, x + pad, y + pad * 0.8, lw, lh);
-  ctx.fillStyle = '#0f4a2c'; ctx.textBaseline = 'top'; ctx.fillText(t, x + pad, y + pad * 0.8 + lh + fs * 0.25);
+  const base = Math.min(w, h), lh = Math.max(14, base * 0.045), lw = lh * (lg.width / lg.height), fs = Math.max(9, lh * 0.46), m = Math.max(8, base * 0.025);
+  ctx.save(); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.font = `600 ${fs}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+  let t = store; const maxW = Math.max(lw, w * 0.5); while (t.length > 1 && ctx.measureText(t).width > maxW) t = t.slice(0, -1); if (t !== store) t = t.trimEnd() + '…';
+  const x = w - m, yText = h - m, yLogo = yText - fs * 1.35 - lh;
+  ctx.globalAlpha = .88; ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = Math.max(2, lh * .18); ctx.shadowOffsetY = 1; ctx.drawImage(lg, x - lw, yLogo, lw, lh);
+  ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; ctx.shadowColor = 'transparent'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, fs * .24); ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.globalAlpha = .92;
+  ctx.strokeText(t, x, yText); ctx.fillStyle = '#fff'; ctx.fillText(t, x, yText);   // dark outline + white fill: readable on light and dark photos
+  ctx.restore();
 }
 async function render(bmp, store, { max, limit }, brand) {
   const lg = brand ? await logo() : null; let scale = Math.min(1, max / Math.max(bmp.width, bmp.height));

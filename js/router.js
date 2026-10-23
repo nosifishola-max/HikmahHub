@@ -12,4 +12,8 @@ export async function render() {
 }
 function mark() { document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === '/' ? location.pathname === '/' : location.pathname.startsWith(a.dataset.nav))); document.getElementById('app').focus({ preventScroll: true }); }
 document.addEventListener('click', e => { const a = e.target.closest('a[data-link]'); if (a && !e.metaKey && !e.ctrlKey && a.target !== '_blank') { e.preventDefault(); go(a.getAttribute('href')); } });
-addEventListener('popstate', render);
+addEventListener('popstate', () => {
+  if (window.__hhSkipPop) { window.__hhSkipPop = false; return; }                                 // we closed the image viewer ourselves: do not re-render
+  if (window.__hhViewer) { const close = window.__hhViewer; window.__hhViewer = null; close(); return; }   // Back button while the viewer is open: just close it
+  render();
+});

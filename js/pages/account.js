@@ -101,7 +101,7 @@ export async function account(app) {
   setMeta('Account', 'Manage your HikmahHub profile');
   const p = state.profile || {};
   app.innerHTML = `<div class="wrap pad" style="max-width:640px"><h1>Your account</h1><p class="muted">${esc(state.user.email)} · ${esc(p.role || 'student')}</p>
-  <div class="row" style="margin-bottom:12px"><a class="btn ghost sm" href="/saved" data-link>Saved</a><a class="btn ghost sm" href="/request" data-link>My requests</a><a class="btn ghost sm" href="/vendor" data-link>${state.vendor ? 'Vendor dashboard' : 'Become a vendor'}</a>${isAdmin() ? '<a class="btn gold sm" href="/admin" data-link>Admin</a>' : ''}</div>
+  <div class="row" style="margin-bottom:12px"><a class="btn ghost sm" href="/saved" data-link>Liked products</a><a class="btn ghost sm" href="/request" data-link>My requests</a><a class="btn ghost sm" href="/vendor" data-link>${state.vendor ? 'Vendor dashboard' : 'Become a vendor'}</a>${isAdmin() ? '<a class="btn gold sm" href="/admin" data-link>Admin</a>' : ''}</div>
   <form id="f" class="panel"><label>Full name<input name="full_name" value="${esc(p.full_name)}" required></label><label>Phone<input name="phone" value="${esc(p.phone)}" inputmode="tel"></label>
   <label>Matric number<input name="matric_number" value="${esc(p.matric_number)}"></label><label>Faculty<input name="faculty" value="${esc(p.faculty)}"></label>
   <label>Department<input name="department" value="${esc(p.department)}"></label><label>Level<select name="level"><option value="">Select</option>${['100', '200', '300', '400', '500', '600'].map(l => `<option ${p.level === l ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
