@@ -61,7 +61,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm install --ignore-scripts --no-fund
-      - run: node -p "JSON.stringify(require('./package-lock.json'))"
+      - run: npm ci --ignore-scripts --no-fund
       - run: node tests/mail-compat.cjs
       - run: npm audit --omit=dev
