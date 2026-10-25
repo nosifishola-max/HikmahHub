@@ -1,5 +1,5 @@
 import { state, isAdmin } from './auth.js';
-import { syncBell } from './notifications.js';
+const syncBell = () => { if (state.user && isAdmin()) import('./notifications.js').then(m => m.syncBell()); else { const b = document.getElementById('bell'); if (b) b.hidden = true; } };
 const ic = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const I = {
   home: ic('<path d="M3 11l9-8 9 8v10H3z"/>'),
@@ -24,3 +24,4 @@ export function refreshNav() {
   if (isAdmin() && sellEntry()[0] !== '/admin') extra.push(['/admin', 'Admin']);
   document.getElementById('desknav').innerHTML = [...items.map(([h, l]) => [h, l]), ...extra].map(([h, l]) => `<a href="${h}" data-link data-nav="${h.split('?')[0]}">${l}</a>`).join('');
 }
+

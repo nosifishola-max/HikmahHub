@@ -196,3 +196,6 @@ input,select,textarea{font-size:1rem;max-width:100%}
 }
 @media(min-width:800px){.contact-bar{bottom:12px}.hero h1{font-size:2.3rem}.hero p{font-size:1.05rem}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+/* Keep compact screens usable with long text and native controls. */
+@media(max-width:360px){.wrap{padding-left:10px;padding-right:10px}.contact-bar .grow{min-width:0;font-size:.85rem}.market-filters{gap:4px}.tabs a{font-size:.65rem}}
+button,a.btn,select,summary{min-height:44px}

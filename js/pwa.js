@@ -29,5 +29,6 @@ export function initPwa() {
     try { ev.prompt(); const { outcome } = await ev.userChoice; if (outcome === 'accepted') btn.hidden = true; else toast('You can install later from this button'); }
     catch { help(); }
   });
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(reg => { if (reg.waiting) toast('An app update is ready. Close all HikmahHub tabs and reopen to update.'); }).catch(() => {});
 }
+

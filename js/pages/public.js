@@ -1,6 +1,6 @@
 import { sb } from '../supabase.js';
 import { recordAnalytics } from '../analytics.js';
-import { mountEventDiscussion } from '../event-discussion.js';
+const mountEventDiscussion = async (...args) => (await import('../event-discussion.js')).mountEventDiscussion(...args);
 import { state, scope } from '../auth.js';
 import { $, $$, esc, money, img, fmtDate, toast, waLink, share, setMeta, skeleton, errBox, formData } from '../util.js';
 import { go, current, onLeave } from '../router.js';
@@ -55,12 +55,12 @@ export async function marketplace(app, _, qs) {
     <select id="type" aria-label="Type"><option value="">Products and services</option><option value="product" ${f.type === 'product' ? 'selected' : ''}>Products</option><option value="service" ${f.type === 'service' ? 'selected' : ''}>Services</option></select>
     <select id="sort" aria-label="Sort"><option value="mixed" ${f.sort === 'mixed' ? 'selected' : ''}>Recommended</option><option value="newest" ${f.sort === 'newest' ? 'selected' : ''}>Newest</option><option value="oldest" ${f.sort === 'oldest' ? 'selected' : ''}>Oldest</option><option value="price_asc" ${f.sort === 'price_asc' ? 'selected' : ''}>Price: low to high</option><option value="price_desc" ${f.sort === 'price_desc' ? 'selected' : ''}>Price: high to low</option></select></div>
     <div id="newpill" hidden style="position:sticky;top:54px;z-index:5;text-align:center;margin-bottom:6px"><button class="btn sm gold" id="np">New listings available. Tap to refresh</button></div>
-    <div id="res">${skeleton(8)}</div><div class="row" style="justify-content:center;margin-top:10px"><button id="more" class="btn ghost" hidden>Load more</button></div></div>`;
+    <div id="res">${skeleton(4)}</div><div class="row" style="justify-content:center;margin-top:10px"><button id="more" class="btn ghost" hidden>Load more</button></div></div>`;
   getCats().then(c => { if (t === current() && $('#cat')) $('#cat').innerHTML = catOpts(c); }).catch(() => { });   // the list renders without waiting for categories
   const apply = () => go(`/marketplace?${new URLSearchParams({ q: $('#f [name=q]').value.trim(), cat: $('#cat').value, type: $('#type').value, sort: $('#sort').value })}`);
   $('#f').onsubmit = e => { e.preventDefault(); apply(); }; ['cat', 'type', 'sort'].forEach(i => $('#' + i).onchange = apply);
   if (!state.user) { try { const data = await cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*'))); if (t === current()) $('#res').innerHTML = signinCta() + (data?.length ? `<div class="grid">${data.map(x => card(x)).join('')}</div>` : ''); } catch (e) { if (t === current()) $('#res').innerHTML = errBox(e); } return; }
-  let off = 0; const size = 24, seen = new Set();
+  let off = 0; const size = 12, seen = new Set();
   const page = o => q(sb.rpc('search_products', { p_q: f.q || null, p_category: f.cat || null, p_type: f.type || null, p_sort: f.sort, p_seed: getSeed(), p_limit: size, p_offset: o }));
   const load = async first => {
     try {
@@ -129,7 +129,7 @@ export async function shop(app, [store]) {
   let s, items = [];
   if (state.user) {
     const { data } = await sb.from('vendors').select('*').eq('slug', store).eq('status', 'approved').maybeSingle(); s = data;
-    if (s) { const r = await cached(`shop:${scope()}:${s.slug}`, 60000, () => q(sb.rpc('search_products', { p_q: s.store_name, p_limit: 60 }))); items = (r || []).filter(x => x.store_slug === s.slug); }
+    if (s) { const r = await q(sb.rpc('search_products', { p_q: s.store_name, p_limit: 60 })); items = (r || []).filter(x => x.store_slug === s.slug); }
   } else { const { data } = await sb.rpc('get_shared_store', { p_store_slug: store }); s = data?.[0]; }
   if (!s) { app.innerHTML = `<div class="wrap pad"><div class="empty"><h3>Store not found</h3><a class="btn" href="/marketplace" data-link>Browse marketplace</a></div></div>`; return; }
   setMeta(s.store_name, s.description || s.short_description || 'Student store on HikmahHub', s.logo_path ? img('vendor-logos', s.logo_path) : undefined);

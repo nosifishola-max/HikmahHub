@@ -6,7 +6,7 @@ const subs = new Map(); let paused = false, hiddenTimer = null;
 export const liveState = { ok: true };
 const fire = s => { clearTimeout(s.t); s.t = setTimeout(() => s.handlers.forEach(h => { try { h(); } catch { } }), 700); };   // coalesce bursts of events
 function open(s) {
-  if (s.ch || !state.user || paused) return;
+  if (s.ch || !state.user || paused || navigator.connection?.saveData || /(^|-)2g$/.test(navigator.connection?.effectiveType || '')) return;
   s.ch = sb.channel(`live:${s.key}`).on('postgres_changes', { event: '*', schema: 'public', table: s.table, ...(s.filter ? { filter: s.filter } : {}) }, () => fire(s))
     .subscribe(status => { if (status === 'SUBSCRIBED') { s.tries = 0; liveState.ok = true; } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') retry(s); });
 }
@@ -28,3 +28,4 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) { clearTimeout(hiddenTimer); hiddenTimer = setTimeout(() => { paused = true; subs.forEach(close); }, 60000); }
   else { clearTimeout(hiddenTimer); if (paused) { paused = false; subs.forEach(s => { open(s); fire(s); }); } }
 });
+

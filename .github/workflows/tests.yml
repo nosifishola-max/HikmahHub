@@ -18,3 +18,32 @@ jobs:
       - run: node tests/browser-smoke.cjs
         env:
           CHROMIUM: google-chrome
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: localtest
+          POSTGRES_DB: hikmah_test
+        ports: [5432:5432]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: localtest
+      PGDATABASE: hikmah_test
+    steps:
+      - uses: actions/checkout@v4
+      - run: psql -v ON_ERROR_STOP=1 -f tests/local-bootstrap.sql -f tests/public-schema.sql -f tests/public-grants.sql -f db/v1_1.sql -f tests/database-contract.sql -f tests/database-roles.sql
+  performance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --prefix /tmp/hikmah-tools playwright@1.56.1 --no-audit --no-fund
+      - run: node tests/performance.cjs
