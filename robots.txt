@@ -2,3 +2,5 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /vendor
+
+Sitemap: https://hikmahhub.com.ng/sitemap.xml
