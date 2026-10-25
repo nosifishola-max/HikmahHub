@@ -61,6 +61,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm install --package-lock-only --ignore-scripts --no-fund
-      - run: npm view nodemailer version
+      - run: npm install --ignore-scripts --no-fund
+      - run: node -p "JSON.stringify(require('./package-lock.json'))"
+      - run: node tests/mail-compat.cjs
       - run: npm audit --omit=dev

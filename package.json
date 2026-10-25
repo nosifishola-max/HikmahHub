@@ -7,6 +7,6 @@
     "test": "node --experimental-vm-modules --test tests/*.test.cjs"
   },
   "dependencies": {
-    "nodemailer": "^6.9.16"
+    "nodemailer": "10.2.1"
   }
 }
