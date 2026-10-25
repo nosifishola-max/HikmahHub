@@ -1,0 +1,46 @@
+{
+  "before": {
+    "js/pages/public.js": {
+      "bytes": 28841,
+      "gzip_bytes": 8676
+    },
+    "js/nav.js": {
+      "bytes": 2082,
+      "gzip_bytes": 1042
+    },
+    "js/cache.js": {
+      "bytes": 951,
+      "gzip_bytes": 505
+    },
+    "sw.js": {
+      "bytes": 1294,
+      "gzip_bytes": 690
+    },
+    "css/styles.css": {
+      "bytes": 23609,
+      "gzip_bytes": 6107
+    }
+  },
+  "after": {
+    "js/pages/public.js": {
+      "bytes": 28848,
+      "gzip_bytes": 8674
+    },
+    "js/nav.js": {
+      "bytes": 2222,
+      "gzip_bytes": 1103
+    },
+    "js/cache.js": {
+      "bytes": 1141,
+      "gzip_bytes": 552
+    },
+    "sw.js": {
+      "bytes": 1824,
+      "gzip_bytes": 877
+    },
+    "css/styles.css": {
+      "bytes": 23890,
+      "gzip_bytes": 6195
+    }
+  }
+}
