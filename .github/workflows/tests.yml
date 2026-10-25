@@ -15,3 +15,6 @@ jobs:
           node-version: 22
       - run: npm test
       - run: find js api -name '*.js' -exec node --check '{}' \;
+      - run: node tests/browser-smoke.cjs
+        env:
+          CHROMIUM: google-chrome

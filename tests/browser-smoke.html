@@ -18,7 +18,7 @@ try {
  assert(!document.querySelector('.card').innerHTML.includes('</a>0'),'No map index');
  assert(getComputedStyle(document.querySelector('.contact-bar')).position === 'sticky','Sticky contact');
  const cols = getComputedStyle(document.querySelector('.tabs')).gridTemplateColumns.split(' ');
- assert(cols.length === 6,'Six navigation columns');
+ assert(innerWidth >= 800 ? getComputedStyle(document.querySelector('.tabs')).display === 'none' : cols.length === 6,'Responsive navigation columns');
  assert(document.documentElement.scrollWidth <= innerWidth,'No horizontal overflow');
  document.querySelector('#result').textContent='PASS: 7 offline browser assertions';
 } catch(e) { document.querySelector('#result').textContent='FAIL: '+e.message; }
