@@ -85,5 +85,3 @@ Requires Node 18+. In the project folder run `npm run dev` (or `node dev-server.
 ## v1.1 development
 
 See [release review, migration, verification and rollback notes](docs/v1.1-release.md). Run `npm test` for offline regression tests. Database changes are review-only and require explicit approval before production application.
-
-Latest release decision: [pre-deployment audit, measured performance and remaining gates](docs/predeployment-audit.md).

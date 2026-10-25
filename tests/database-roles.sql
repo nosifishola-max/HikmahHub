@@ -23,6 +23,15 @@ end $$;
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
+update public.profiles set faculty='' where id='00000000-0000-0000-0000-000000000001';
+do $$ begin
+ begin
+  insert into public.vendors(owner_id,store_name,slug,whatsapp_number) values('00000000-0000-0000-0000-000000000001','Student store','student-store','2348012345678');
+  raise exception 'TEST: missing faculty accepted';
+ exception when others then if SQLERRM not like '%faculty and department are required%' then raise; end if; end;
+end $$;
+update public.profiles set faculty='Science' where id='00000000-0000-0000-0000-000000000001';
+insert into public.vendors(owner_id,store_name,slug,whatsapp_number) values('00000000-0000-0000-0000-000000000001','Student store','student-store','2348012345678');
 select public.set_event_like('20000000-0000-0000-0000-000000000001',true);
 select public.set_event_like('20000000-0000-0000-0000-000000000001',true);
 select public.add_event_comment('20000000-0000-0000-0000-000000000001','Hello campus');
