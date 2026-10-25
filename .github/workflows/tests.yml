@@ -36,6 +36,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: psql -v ON_ERROR_STOP=1 -f tests/local-bootstrap.sql -f tests/public-schema.sql -f tests/public-grants.sql -f db/v1_1.sql -f tests/database-contract.sql -f tests/database-roles.sql
+      - name: Rehearse disposable backup restore
+        run: |
+          pg_dump --format=custom --no-owner --file=/tmp/hikmah-local.dump
+          createdb hikmah_restore
+          pg_restore --exit-on-error --no-owner --dbname=hikmah_restore /tmp/hikmah-local.dump
+          PGDATABASE=hikmah_restore psql -v ON_ERROR_STOP=1 -f tests/database-contract.sql -f tests/database-roles.sql
   performance:
     runs-on: ubuntu-latest
     steps:

@@ -17,12 +17,12 @@ async function serve(root, port) {
  const context=await browser.newContext({viewport:{width:360,height:800},serviceWorkers:'block'});
  const page=await context.newPage(); const cdp=await context.newCDPSession(page);
  await cdp.send('Network.enable');await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:400,downloadThroughput:50000,uploadThroughput:25000,connectionType:'cellular3g'});await cdp.send('Emulation.setCPUThrottlingRate',{rate:4});
- let bytes=0,requests=0, failures=0;
- cdp.on('Network.requestWillBeSent',()=>requests++);cdp.on('Network.loadingFinished',e=>bytes+=e.encodedDataLength);cdp.on('Network.loadingFailed',()=>failures++);
+ let bytes=0,requests=0, failures=0; const urls=new Map(), transfers={};
+ cdp.on('Network.requestWillBeSent',e=>{requests++;urls.set(e.requestId,e.request.url)});cdp.on('Network.loadingFinished',e=>{bytes+=e.encodedDataLength;const u=urls.get(e.requestId)||'';const group=u.includes('/storage/')?'storage':u.includes('cdn.jsdelivr')?'sdk':u.includes('/rest/')?'api':'static';transfers[group]=(transfers[group]||0)+e.encodedDataLength;});cdp.on('Network.loadingFailed',()=>failures++);
  await page.addInitScript(()=>{window.__lcp=0;new PerformanceObserver(list=>{window.__lcp=list.getEntries().at(-1).startTime}).observe({type:'largest-contentful-paint',buffered:true});});
- const started=Date.now();await page.goto(`http://localhost:${port}`,{waitUntil:'load',timeout:90000});await page.waitForTimeout(8000);
+ const started=Date.now();await page.goto(`http://localhost:${port}`,{waitUntil:'load',timeout:90000});await page.waitForLoadState('networkidle', {timeout:60000});await page.waitForTimeout(3000);
  const metrics=await page.evaluate(()=>({fcp:performance.getEntriesByName('first-contentful-paint')[0]?.startTime??null,lcp:window.__lcp,domContentLoaded:performance.getEntriesByType('navigation')[0].domContentLoadedEventEnd,rendered:!!document.querySelector('.hero')}));
- results.push({version,profile:'360px, 400ms RTT, 50kB/s download, 4x CPU, cold, SW blocked',...metrics,bytes,requests,failures,observedMs:Date.now()-started});
+ results.push({version,profile:'360px, 400ms RTT, 50kB/s download, 4x CPU, cold, SW blocked',...metrics,bytes,requests,failures,transfers,observedMs:Date.now()-started});
  // Intermittent connectivity: static loaded UI remains intact, then recovery is possible.
  await context.setOffline(true);await page.waitForTimeout(500);if(!await page.locator('.hero').count())throw Error('Offline page lost hero');await context.setOffline(false);
  await context.close();

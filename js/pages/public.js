@@ -81,7 +81,8 @@ export async function product(app, [store, slug]) {
   let p, imgs = [], loggedIn = !!state.user;
   if (loggedIn) {
     const { data, error } = await sb.from('products').select('*, vendors!inner(id,store_name,slug,is_verified,whatsapp_number,campus_location), product_images(path,sort_order), categories(name)').eq('slug', slug).eq('vendors.slug', store).maybeSingle();
-    if (error || !data) { app.innerHTML = `<div class="wrap pad"><div class="empty"><h3>Listing not found</h3><p class="muted">It may have been removed or is awaiting approval.</p><a class="btn" href="/marketplace" data-link>Back to marketplace</a></div></div>`; return; }
+    if (error) { app.innerHTML = `<div class="wrap pad">${errBox({ message: 'Could not load this listing. Check your connection and retry.' })}</div>`; return; }
+    if (!data) { app.innerHTML = `<div class="wrap pad"><div class="empty"><h3>Listing not found</h3><p class="muted">It may have been removed or is awaiting approval.</p><a class="btn" href="/marketplace" data-link>Back to marketplace</a></div></div>`; return; }
     p = data; imgs = (data.product_images || []).sort((a, b) => a.sort_order - b.sort_order).map(i => i.path);
   } else {
     const { data } = await sb.rpc('get_shared_product', { p_store_slug: store, p_product_slug: slug });

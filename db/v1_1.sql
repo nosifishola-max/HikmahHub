@@ -97,6 +97,10 @@ grant execute on function public.get_event_likes(uuid), public.set_event_like(uu
 alter table public.reports drop constraint reports_target_type_check;
 alter table public.reports add constraint reports_target_type_check
 check(target_type in ('product','store','event','deal','event_comment'));
+-- Reporters cannot forge moderation status or reviewer identity at insert time.
+drop policy reports_insert on public.reports;
+create policy reports_insert on public.reports for insert to authenticated
+with check (reporter_id = (select auth.uid()) and status = 'open' and resolved_by is null and resolved_at is null);
 -- Preserve all existing report resolution paths and audit logging.
 create or replace function public.admin_resolve_report(p_report uuid,p_status text,p_hide_target boolean default false)
 returns void language plpgsql security definer set search_path = '' as $$

@@ -142,7 +142,7 @@ CREATE OR REPLACE FUNCTION public.notify_admins(p_type text, p_vendor uuid, p_pr
  LANGUAGE sql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   insert into public.admin_notifications (recipient_id, type, vendor_id, product_id, title, body, link, dedupe_key)
   select p.id, p_type, p_vendor, p_product, p_title, p_body, p_link, p_key from public.profiles p where p.role = 'admin' and p.is_active
   on conflict (recipient_id, dedupe_key) do nothing;     -- the same event can never notify twice
@@ -153,7 +153,7 @@ CREATE OR REPLACE FUNCTION public.get_shared_event(p_slug text)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select e.id, e.title, left(e.description, 160), e.starts_at, e.location, e.organizer, e.image_path, e.slug
   from public.events e where e.slug = p_slug and e.status = 'published';
 $function$;
@@ -163,7 +163,7 @@ CREATE OR REPLACE FUNCTION public.current_brand_version()
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select coalesce((select (value #>> '{}')::int from public.site_settings where key = 'brand_version'), 1);
 $function$;
 
@@ -172,7 +172,7 @@ CREATE OR REPLACE FUNCTION public.admin_branding_stats()
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
   return jsonb_build_object('branded', (select count(*) from public.product_images where brand_status = 'branded'),
@@ -186,7 +186,7 @@ CREATE OR REPLACE FUNCTION public.record_store_view(p_vendor uuid)
  LANGUAGE sql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   insert into public.store_views (vendor_id, viewer_id)
   select v.id, auth.uid() from public.vendors v where v.id = p_vendor and v.status = 'approved';
 $function$;
@@ -196,7 +196,7 @@ CREATE OR REPLACE FUNCTION public.admin_resolve_report(p_report uuid, p_status t
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare r public.reports;
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
@@ -220,7 +220,7 @@ CREATE OR REPLACE FUNCTION public.admin_review_product(p_product uuid, p_status 
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare cur public.moderation_status;
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
@@ -240,7 +240,7 @@ CREATE OR REPLACE FUNCTION public.demand_count(p_term text)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select count(*) from public.demand_requests where status = 'open' and title_key = lower(btrim(p_term)) and auth.uid() is not null;
 $function$;
 
@@ -248,7 +248,7 @@ CREATE OR REPLACE FUNCTION public.guard_profile()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if auth.uid() is not null and not public.is_admin() then
     if new.role is distinct from old.role or new.is_active is distinct from old.is_active then
@@ -263,7 +263,7 @@ CREATE OR REPLACE FUNCTION public.admin_branding_report(p_limit integer DEFAULT 
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare cur int := public.current_brand_version();
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
@@ -282,7 +282,7 @@ CREATE OR REPLACE FUNCTION public.enforce_image_cap()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if auth.uid() is not null and not public.is_admin()
      and (select count(*) from public.product_images where product_id = new.product_id) >= 5 then
@@ -296,7 +296,7 @@ CREATE OR REPLACE FUNCTION public.is_admin()
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin' and p.is_active);
 $function$;
 
@@ -304,7 +304,7 @@ CREATE OR REPLACE FUNCTION public.guard_product_image()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare vid uuid; vname text;
 begin
   select v.id, v.store_name into vid, vname from public.products p join public.vendors v on v.id = p.vendor_id where p.id = new.product_id;
@@ -325,7 +325,7 @@ CREATE OR REPLACE FUNCTION public.guard_vendor()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if auth.uid() is not null and not public.is_admin() then
     if tg_op = 'INSERT' then
@@ -349,7 +349,7 @@ CREATE OR REPLACE FUNCTION public.owns_vendor(vid uuid)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select exists (select 1 from public.vendors v where v.id = vid and v.owner_id = auth.uid());
 $function$;
 
@@ -357,7 +357,7 @@ CREATE OR REPLACE FUNCTION public.guard_deal()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   select p.vendor_id into new.vendor_id from public.products p where p.id = new.product_id;
   if new.vendor_id is null then raise exception 'Unknown product'; end if;
@@ -379,7 +379,7 @@ CREATE OR REPLACE FUNCTION public.assign_slug()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare base text; cand text; n int := 1; taken boolean; src text; j jsonb := to_jsonb(new);
 begin
   if tg_table_name = 'vendors' then src := j->>'store_name'; else src := j->>'title'; end if;
@@ -405,7 +405,7 @@ CREATE OR REPLACE FUNCTION public.search_products(p_q text DEFAULT NULL::text, p
  LANGUAGE sql
  STABLE
  SET search_path TO ''
-AS $function$;
+AS $function$
   with f as (
     select p.id, p.title, p.slug, p.price, p.availability, p.listing_type, p.created_at, v.id as vid, v.store_name, v.slug as vslug, v.is_verified
     from public.products p join public.vendors v on v.id = p.vendor_id
@@ -432,7 +432,7 @@ CREATE OR REPLACE FUNCTION public.admin_set_featured(p_product uuid, p_featured 
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
   if p_featured and not exists (select 1 from public.products p join public.vendors v on v.id = p.vendor_id where p.id = p_product and p.status = 'approved' and v.status = 'approved') then
@@ -446,7 +446,7 @@ CREATE OR REPLACE FUNCTION public.slugify(txt text)
  LANGUAGE sql
  IMMUTABLE
  SET search_path TO ''
-AS $function$;
+AS $function$
   select coalesce(nullif(trim(both '-' from regexp_replace(lower(coalesce(txt,'')), '[^a-z0-9]+', '-', 'g')), ''), 'item');
 $function$;
 
@@ -455,7 +455,7 @@ CREATE OR REPLACE FUNCTION public.notify_product_review()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare sname text; pt text; stamp text := to_char(new.updated_at, 'YYYYMMDDHH24MISSUS');
 begin
   select v.store_name into sname from public.vendors v where v.id = new.vendor_id; pt := coalesce(new.title, 'Untitled');
@@ -472,7 +472,7 @@ CREATE OR REPLACE FUNCTION public.get_shared_product(p_store_slug text, p_produc
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select p.id, p.title, left(p.description, 160), p.price, p.availability,
     (select i.path from public.product_images i where i.product_id = p.id order by i.sort_order limit 1),
     v.store_name, v.slug, v.is_verified, p.slug
@@ -485,7 +485,7 @@ CREATE OR REPLACE FUNCTION public.get_shared_store(p_store_slug text)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select v.id, v.store_name, v.slug, left(v.description, 160), v.logo_path, v.is_verified, v.campus_location,
     (select i.path from public.product_images i join public.products p on p.id = i.product_id where p.vendor_id = v.id and p.status = 'approved' order by p.is_featured desc, p.updated_at desc, i.sort_order limit 1)
   from public.vendors v where v.slug = p_store_slug and v.status = 'approved';
@@ -496,7 +496,7 @@ CREATE OR REPLACE FUNCTION public.get_demand_opportunities(p_limit integer DEFAU
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if not (public.is_admin() or public.is_approved_vendor()) then raise exception 'Vendors only'; end if;
   return query
@@ -510,7 +510,7 @@ CREATE OR REPLACE FUNCTION public.set_product_like(p_product uuid, p_like boolea
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if auth.uid() is null then raise exception 'Sign in to like products'; end if;
   if p_like then
@@ -528,7 +528,7 @@ CREATE OR REPLACE FUNCTION public.get_most_wanted(p_days integer DEFAULT 7, p_li
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   with w as (select now() - make_interval(days => greatest(p_days, 1)) as since),
   s as (select x.query_key k, count(*) c from public.searches x, w where x.results_count = 0 and x.created_at >= w.since group by 1),
   d as (select x.title_key k, count(*) c from public.demand_requests x, w where x.status = 'open' and x.created_at >= w.since group by 1)
@@ -543,7 +543,7 @@ CREATE OR REPLACE FUNCTION public.admin_set_vendor_status(p_vendor uuid, p_statu
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare v public.vendors; ev bigint; nid uuid;
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
@@ -571,7 +571,7 @@ CREATE OR REPLACE FUNCTION public.record_product_view(p_product uuid)
  LANGUAGE sql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   insert into public.product_views (product_id, viewer_id)
   select p.id, auth.uid() from public.products p where p.id = p_product and p.status = 'approved';
 $function$;
@@ -581,7 +581,7 @@ CREATE OR REPLACE FUNCTION public.record_whatsapp_click(p_vendor uuid, p_product
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if auth.uid() is null then return; end if;
   insert into public.whatsapp_clicks (vendor_id, product_id, user_id)
@@ -594,7 +594,7 @@ CREATE OR REPLACE FUNCTION public.admin_storage_stats()
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
   return query select o.bucket_id::text, count(*), coalesce(sum((o.metadata->>'size')::bigint), 0)::bigint,
@@ -605,7 +605,7 @@ CREATE OR REPLACE FUNCTION public.guard_image_delete()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare st public.moderation_status;
 begin
   select status into st from public.products where id = old.product_id;
@@ -619,7 +619,7 @@ CREATE OR REPLACE FUNCTION public.refresh_draft_slug()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare base text; cand text; n int := 1;
 begin
   if old.status = 'draft' and new.status <> 'draft' and new.title is not null then
@@ -635,7 +635,7 @@ CREATE OR REPLACE FUNCTION public.log_vendor_status()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare ev bigint; nm text := coalesce(new.store_name, 'A store');
 begin
   if tg_op = 'INSERT' then
@@ -658,7 +658,7 @@ CREATE OR REPLACE FUNCTION public.get_admin_overview()
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
   return jsonb_build_object(
@@ -688,7 +688,7 @@ CREATE OR REPLACE FUNCTION public.get_top_vendors(p_days integer DEFAULT 7, p_li
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   with w as (select now() - make_interval(days => greatest(p_days, 1)) as since),
   sv as (select s.vendor_id, count(*) c from public.store_views s, w where s.created_at >= w.since group by 1),
   pv as (select p.vendor_id, count(*) c from public.product_views x join public.products p on p.id = x.product_id, w where x.created_at >= w.since group by 1),
@@ -710,7 +710,7 @@ CREATE OR REPLACE FUNCTION public.admin_list_orphan_files(p_min_age interval DEF
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
   return query
@@ -733,7 +733,7 @@ CREATE OR REPLACE FUNCTION public.enforce_product_cap()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if auth.uid() is not null and not public.is_admin()
      and (select count(*) from public.products where vendor_id = new.vendor_id) >= 300 then
@@ -747,7 +747,7 @@ CREATE OR REPLACE FUNCTION public.next_promo_change(p_placement text DEFAULT 'ho
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select min(t) from (
     select min(ends_at) t from public.promotions where placement = p_placement and status = 'active' and starts_at <= now() and ends_at > now()
     union all
@@ -759,7 +759,7 @@ CREATE OR REPLACE FUNCTION public.get_product_likes(p_product uuid)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select (select count(*) from public.product_saves s where s.product_id = p_product),
          coalesce((select true from public.product_saves s where s.product_id = p_product and s.user_id = auth.uid()), false)
   where exists (select 1 from public.products p join public.vendors v on v.id = p.vendor_id where p.id = p_product and p.status = 'approved' and v.status = 'approved');
@@ -770,7 +770,7 @@ CREATE OR REPLACE FUNCTION public.normalize_phone(p text)
  LANGUAGE plpgsql
  IMMUTABLE
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare s text; d text; intl boolean;
 begin
   if p is null then return null; end if;
@@ -796,7 +796,7 @@ CREATE OR REPLACE FUNCTION public.admin_claim_notification(p_id uuid)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare vid uuid; k text;
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
@@ -812,14 +812,14 @@ CREATE OR REPLACE FUNCTION public.set_updated_at()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin new.updated_at = now(); return new; end $function$;
 
 CREATE OR REPLACE FUNCTION public.toggle_save(p_product uuid)
  RETURNS boolean
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if exists (select 1 from public.product_saves where user_id = auth.uid() and product_id = p_product) then
     delete from public.product_saves where user_id = auth.uid() and product_id = p_product;
@@ -834,7 +834,7 @@ CREATE OR REPLACE FUNCTION public.admin_review_changes(p_product uuid, p_approve
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare pc jsonb;
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
@@ -856,7 +856,7 @@ CREATE OR REPLACE FUNCTION public.owns_product(pid uuid)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select exists (select 1 from public.products p join public.vendors v on v.id = p.vendor_id where p.id = pid and v.owner_id = auth.uid());
 $function$;
 
@@ -865,7 +865,7 @@ CREATE OR REPLACE FUNCTION public.get_shared_deal(p_deal uuid)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select d.id, p.title, d.deal_price, d.original_price, d.ends_at,
     coalesce(d.image_path, (select i.path from public.product_images i where i.product_id = p.id order by i.sort_order limit 1)),
     v.store_name, v.slug, p.slug
@@ -879,7 +879,7 @@ CREATE OR REPLACE FUNCTION public.vendor_discard_pending(p_product uuid)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if not public.owns_product(p_product) then raise exception 'Not your listing'; end if;
   update public.products set pending_changes = null where id = p_product;
@@ -890,7 +890,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   insert into public.profiles (id, email, full_name)
   values (new.id, new.email, coalesce(new.raw_user_meta_data->>'full_name', ''))
@@ -903,7 +903,7 @@ CREATE OR REPLACE FUNCTION public.get_trending_products(p_days integer DEFAULT 7
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   with w as (select now() - make_interval(days => greatest(p_days, 1)) as since),
   pv as (select x.product_id, count(*) c from public.product_views x, w where x.created_at >= w.since group by 1),
   sa as (select x.product_id, count(*) c from public.product_saves x, w where x.created_at >= w.since group by 1),
@@ -924,7 +924,7 @@ CREATE OR REPLACE FUNCTION public.record_search(p_query text, p_results integer)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if auth.uid() is null or char_length(btrim(coalesce(p_query, ''))) < 2 then return; end if;
   insert into public.searches (user_id, query, results_count) values (auth.uid(), left(btrim(p_query), 100), greatest(coalesce(p_results, 0), 0));
@@ -934,7 +934,7 @@ CREATE OR REPLACE FUNCTION public.normalize_vendor_whatsapp()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare n text;
 begin
   if tg_op = 'INSERT' or new.whatsapp_number is distinct from old.whatsapp_number then
@@ -950,7 +950,7 @@ CREATE OR REPLACE FUNCTION public.vendor_is_approved(vid uuid)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select exists (select 1 from public.vendors v where v.id = vid and v.status = 'approved');
 $function$;
 
@@ -959,7 +959,7 @@ CREATE OR REPLACE FUNCTION public.snapshot_weekly_rankings(p_week date DEFAULT (
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if auth.uid() is not null and not public.is_admin() then raise exception 'Admin only'; end if;
   delete from public.weekly_rankings where week_start = p_week;
@@ -1006,7 +1006,7 @@ CREATE OR REPLACE FUNCTION public.mark_admin_notifications_read(p_ids uuid[] DEF
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare n int;
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
@@ -1019,7 +1019,7 @@ CREATE OR REPLACE FUNCTION public.owns_approved_vendor(vid uuid)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select exists (select 1 from public.vendors v where v.id = vid and v.owner_id = auth.uid() and v.status = 'approved');
 $function$;
 
@@ -1028,7 +1028,7 @@ CREATE OR REPLACE FUNCTION public.admin_finish_notification(p_id uuid, p_ok bool
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 begin
   if not public.is_admin() then raise exception 'Admin only'; end if;
   update public.vendor_notifications set status = case when p_ok then 'sent' else 'failed' end, last_error = case when p_ok then null else left(p_error, 300) end,
@@ -1040,7 +1040,7 @@ CREATE OR REPLACE FUNCTION public.is_approved_vendor()
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
   select exists (select 1 from public.vendors v where v.owner_id = auth.uid() and v.status = 'approved');
 $function$;
 
@@ -1048,7 +1048,7 @@ CREATE OR REPLACE FUNCTION public.guard_product()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare sens jsonb := '{}'::jsonb;
 begin
   new.title := nullif(btrim(new.title), '');

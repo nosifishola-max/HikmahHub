@@ -39,4 +39,26 @@ do $$ begin if not exists(select 1 from public.vendors where slug='legacy' and d
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',true);
 do $$ begin if not public.is_admin() then raise exception 'Admin access lost'; end if; end $$;
 reset role;
+do $$ begin
+ begin
+  update public.profiles set matric_number=' Ahu / 001 ' where id='00000000-0000-0000-0000-000000000003';
+  raise exception 'TEST: normalized duplicate accepted';
+ exception when unique_violation then null; end;
+end $$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
+insert into public.reports(reporter_id,target_type,target_id,reason)
+select '00000000-0000-0000-0000-000000000001','event_comment',id,'inappropriate' from public.event_comments limit 1;
+do $$ begin
+ begin
+  insert into public.reports(reporter_id,target_type,target_id,reason,status) values
+  ('00000000-0000-0000-0000-000000000001','event', '20000000-0000-0000-0000-000000000001','other','resolved');
+  raise exception 'TEST: forged moderation accepted';
+ exception when insufficient_privilege then null; end;
+end $$;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',true);
+select public.admin_resolve_report(id,'resolved',true) from public.reports where target_type='event_comment';
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
+do $$ begin if exists(select 1 from public.event_comments) then raise exception 'Hidden comment visible'; end if; end $$;
+reset role;
 rollback;
