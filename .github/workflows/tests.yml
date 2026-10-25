@@ -1,0 +1,17 @@
+name: Regression tests
+on:
+  pull_request:
+  push:
+    branches: [codex/hikmahhub-v1-1]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: find js api -name '*.js' -exec node --check '{}' \;

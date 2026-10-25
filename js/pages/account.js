@@ -1,4 +1,5 @@
 import { sb } from '../supabase.js';
+import { normalizeMatric } from '../vendor-identity.js';
 import { state, loadSession, signOut, isAdmin } from '../auth.js';
 import { $, esc, toast, formData, setMeta } from '../util.js';
 import { passwordField, bindPasswordToggles, cooldown, setMsg, openDialog } from '../ui.js';
@@ -106,6 +107,7 @@ export async function account(app) {
   <label>Matric number<input name="matric_number" value="${esc(p.matric_number)}"></label><label>Faculty<input name="faculty" value="${esc(p.faculty)}"></label>
   <label>Department<input name="department" value="${esc(p.department)}"></label><label>Level<select name="level"><option value="">Select</option>${['100', '200', '300', '400', '500', '600'].map(l => `<option ${p.level === l ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
   <button class="btn" style="margin-top:14px">Save profile</button></form><button id="out" class="btn ghost">Sign out</button></div>`;
-  $('#f').onsubmit = async e => { e.preventDefault(); const d = formData(e.target); if (d.phone) { const ph = normalizePhone(d.phone); if (!ph.ok) return toast(ph.error); d.phone = ph.value; } else d.phone = null; const { error } = await sb.from('profiles').update(d).eq('id', state.user.id); if (error) return toast(friendlyError(error)); await loadSession(); toast('Profile saved'); };
+  $('#f').onsubmit = async e => { e.preventDefault(); const d = formData(e.target); d.matric_number = normalizeMatric(d.matric_number) || null; if (d.phone) { const ph = normalizePhone(d.phone); if (!ph.ok) return toast(ph.error); d.phone = ph.value; } else d.phone = null; const { error } = await sb.from('profiles').update(d).eq('id', state.user.id); if (error) return toast(friendlyError(error)); await loadSession(); toast('Profile saved'); };
   $('#out').onclick = async () => { await signOut(); refreshNav(); go('/'); };
 }
+

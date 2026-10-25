@@ -166,3 +166,33 @@ label{margin:9px 0 3px;font-size:.84rem}
 /* ---- v1.8 fixes: .pad must not remove the side padding of .wrap; viewer background fully opaque ---- */
 .pad{padding-top:14px;padding-bottom:14px}
 .vw{background:#000}
+
+
+/* v1.1 responsive marketplace and contact controls */
+.tabs{grid-template-columns:repeat(6,minmax(0,1fr))}
+.tabs a{min-width:0;min-height:52px;font-size:.7rem}
+:focus-visible{outline:3px solid #9b6900;outline-offset:3px}
+input,select,textarea{font-size:1rem;max-width:100%}
+.card .t{overflow-wrap:anywhere;line-height:1.4}
+.card .b{padding:12px}.card .price{font-size:1.1rem}
+.market-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.market-filters select{width:100%;min-width:0;font-size:.85rem;padding:8px 4px}
+.contact-bar{display:flex;flex-wrap:wrap;gap:8px;position:sticky;bottom:calc(60px + env(safe-area-inset-bottom));z-index:10;background:var(--bg);padding:12px 0;margin-top:12px}
+.contact-bar .grow{flex:1;min-width:180px}
+.pc-slide{aspect-ratio:auto;display:flex;flex-direction:column;background:var(--green)}
+.pc-slide img{position:static;object-fit:contain;height:auto;aspect-ratio:2/1;background:#edf1eb}
+.pc-slide .shade{display:none}.pc-slide .txt{position:static;max-width:none;padding:16px 48px 32px}
+.pc-slide p{display:block;overflow:visible}.pc-nav{top:30%}
+.pc-dots button{width:44px;height:32px}
+@media(max-width:599px){
+  .hero h1{font-size:1.7rem;max-width:25ch}.hero input{min-width:0;width:100%}
+  .vendor-listings,.vendor-listings tbody{display:block}
+  .vendor-listings tr:first-child{display:none}
+  .vendor-listings tr{display:grid;grid-template-columns:56px minmax(0,1fr);gap:4px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px;margin:10px 0}
+  .vendor-listings td{border:0;padding:4px;overflow-wrap:anywhere}
+  .vendor-listings td:nth-child(n+3){grid-column:1/-1}
+  .vendor-listings select{width:100%;min-height:44px}
+  .vendor-listings button{min-height:44px}
+}
+@media(min-width:800px){.contact-bar{bottom:12px}.hero h1{font-size:2.3rem}.hero p{font-size:1.05rem}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
