@@ -75,3 +75,17 @@ test('like controller serializes rapid taps and rolls back failures', async () =
   const bad = createLikes({ setLike: async () => { throw Error('offline'); }, onChange() {} });
   bad.toggle(); await new Promise(setImmediate); assert.equal(bad.state.liked, false);
 });
+
+test('late cache responses cannot repopulate a signed-out session', async () => {
+ const { cached, clearAll } = await load('js/cache.js'); let finish;
+ const first = cached('private:user',60000,()=>new Promise(r=>finish=r));
+ await new Promise(setImmediate);clearAll();finish('old');await first;
+ assert.equal(await cached('private:user',60000,async()=>'fresh'),'fresh');
+});
+
+test('realtime invalidation cannot store an obsolete in-flight response', async () => {
+ const { cached, invalidate } = await load('js/cache.js'); let finish;
+ const first=cached('mk:list',60000,()=>new Promise(r=>finish=r));await new Promise(setImmediate);
+ invalidate('mk:');finish('old');await first;
+ assert.equal(await cached('mk:list',60000,async()=>'new'),'new');
+});

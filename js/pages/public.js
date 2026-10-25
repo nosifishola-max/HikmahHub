@@ -38,7 +38,7 @@ export async function home(app) {
   getCats().then(cats => { if (t === current() && $('#cats')) $('#cats').innerHTML = cats.map(c => `<a href="/marketplace?cat=${c.id}" data-link>${esc(c.name)}</a>`).join(''); }).catch(() => { });   // never blocks the feed
   const load = () => state.user
     ? Promise.all([cached(`home:tr:${sc}`, 120000, () => q(sb.rpc('get_trending_products', { p_days: 7, p_limit: 4 }))), cached(`home:latest:${sc}:${getSeed()}`, 60000, () => q(sb.rpc('search_products', { p_limit: 8, p_sort: 'mixed', p_seed: getSeed() }))), cached(`home:tv:${sc}`, 120000, () => q(sb.rpc('get_top_vendors', { p_days: 7, p_limit: 3 })))])   // one parallel round
-    : cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*')));
+    : cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*').limit(8)));
   const draw = async () => { try { const r = await load(); if (t !== current()) return; $('#feed').innerHTML = state.user ? feedHtml(...r) : anonHtml(r); } catch (e) { if (t === current() && !$('#feed .grid')) $('#feed').innerHTML = errBox(e); } };
   await draw();
   if (state.user) { onLeave(watch('products', () => { invalidate('home:'); invalidate('mk:'); draw(); })); onLeave(onResume(draw)); }
@@ -59,7 +59,7 @@ export async function marketplace(app, _, qs) {
   getCats().then(c => { if (t === current() && $('#cat')) $('#cat').innerHTML = catOpts(c); }).catch(() => { });   // the list renders without waiting for categories
   const apply = () => go(`/marketplace?${new URLSearchParams({ q: $('#f [name=q]').value.trim(), cat: $('#cat').value, type: $('#type').value, sort: $('#sort').value })}`);
   $('#f').onsubmit = e => { e.preventDefault(); apply(); }; ['cat', 'type', 'sort'].forEach(i => $('#' + i).onchange = apply);
-  if (!state.user) { try { const data = await cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*'))); if (t === current()) $('#res').innerHTML = signinCta() + (data?.length ? `<div class="grid">${data.map(x => card(x)).join('')}</div>` : ''); } catch (e) { if (t === current()) $('#res').innerHTML = errBox(e); } return; }
+  if (!state.user) { try { const data = await cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*').limit(8))); if (t === current()) $('#res').innerHTML = signinCta() + (data?.length ? `<div class="grid">${data.map(x => card(x)).join('')}</div>` : ''); } catch (e) { if (t === current()) $('#res').innerHTML = errBox(e); } return; }
   let off = 0; const size = 12, seen = new Set();
   const page = o => q(sb.rpc('search_products', { p_q: f.q || null, p_category: f.cat || null, p_type: f.type || null, p_sort: f.sort, p_seed: getSeed(), p_limit: size, p_offset: o }));
   const load = async first => {

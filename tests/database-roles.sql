@@ -18,7 +18,7 @@ insert into public.events(id,title,slug,starts_at,status) values
 ('20000000-0000-0000-0000-000000000002','Draft event','draft-event',now(),'draft');
 set local role anon;
 do $$ begin
- if exists(select 1 from public.profiles) then raise exception 'Private profiles exposed'; end if;
+ begin if exists(select 1 from public.profiles) then raise exception 'Private profiles exposed'; end if; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 set local role authenticated;

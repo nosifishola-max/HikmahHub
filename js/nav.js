@@ -1,5 +1,6 @@
 import { state, isAdmin } from './auth.js';
-const syncBell = () => { if (state.user && isAdmin()) import('./notifications.js').then(m => m.syncBell()); else { const b = document.getElementById('bell'); if (b) b.hidden = true; } };
+let notifications;
+const syncBell = () => { if (!notifications && state.user && isAdmin()) notifications = import('./notifications.js'); if (notifications) notifications.then(m => m.syncBell()); else { const b = document.getElementById('bell'); if (b) b.hidden = true; } };
 const ic = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const I = {
   home: ic('<path d="M3 11l9-8 9 8v10H3z"/>'),
