@@ -54,3 +54,13 @@ jobs:
           node-version: 22
       - run: npm install --prefix /tmp/hikmah-tools playwright@1.56.1 --no-audit --no-fund
       - run: node tests/performance.cjs
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --package-lock-only --ignore-scripts --no-fund
+      - run: npm view nodemailer version
+      - run: npm audit --omit=dev
