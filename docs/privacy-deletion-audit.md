@@ -42,3 +42,15 @@ The user-facing policy pages describe providers, device storage, public/private 
 Reviewed draft `db/privacy-requests.sql` follows `db/v1_1.sql` and `db/android-fixes.sql`. It creates new request/audit tables, RLS, indexes and caller/admin functions; no deletes, anonymisation, schedules, password/configuration changes or production backfills. Generate timestamped migration files with the Supabase CLI before approved application; the current workspace cannot install/use that CLI. Test complete schema, grants and Auth sessions compatibility first.
 
 Before production: legal/operator approval of notices, retention and 16–17 safeguards; verified backup/restore and provider settings; authenticated UI/security retesting; staff ownership of review/response/escalation; full erasure runbook/executor review if permanent completion will be offered; separate explicit approval for migrations, merge and deployment. Keep PR draft/NO-GO. Prior general release gates still apply.
+
+## Verification record
+
+Passing CI: [run 40399247750](https://github.com/nosifishola-max/HikmahHub/actions/runs/40399247750).
+
+- `npm test`: 14 individual regression cases across the application/privacy and service-worker files; module-load test now catches malformed policy JavaScript, in addition to consent/identity/failure and existing functionality checks.
+- Browser fixture: 18 assertions per viewport, policy/terms rendering and links, visible deletion entry and consent field; exact Playwright 320/360/390/768/1280 viewport screenshots are available in `android-ui-evidence`. These use synthetic/mocked UI state and are not evidence of a fully connected browser submission.
+- Real disposable GoTrue + PostgREST HTTP: valid login, owner-only request/read/withdraw, other-user denial, denied direct insert/review and audit reads, wrong confirmation, stale password AMR, missing session and actual logout rejection, idempotent retry, false-completion rejection, stale admin version rejection, vendor/active listing/unresolved-report inventory, legacy thumbnail/original references and metadata file preservation. No production users/credentials/files were used. The test JWT signing key is disposable and local to CI, not a project secret.
+- Disposable PostgreSQL: public schema + all draft migrations, existing FK/RLS contracts/roles, backup/restore and synthetic row preservation. Existing approved vendor tests remain passing.
+- JavaScript/shell checks and runtime dependency audit pass. Existing throttled anonymous-homepage/performance checks also pass.
+
+Not tested or implemented: actual Storage API erasure, anonymisation of a completed account, full provider/database/Auth deletion, recovery of an interrupted destructive job, universal old-token denial after final erasure, production backups or post-migration owner-device behavior. Request retries and non-destructive review are tested; that must not be presented as a completed erasure test. No automatic retention enforcement is active.
