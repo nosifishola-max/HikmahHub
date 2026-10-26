@@ -15,6 +15,8 @@ const lazy = (loader, name, needsProfile) => async (app, ...rest) => {
   return m[name](app, ...rest);
 };
 route('', P.home); route('/', P.home);
+const legal = () => import('./pages/legal.js');
+route('/privacy', lazy(legal, 'privacy')); route('/terms', lazy(legal, 'terms'));
 route('/marketplace', P.marketplace); route('/trending', P.trending); route('/deals', P.deals); route('/events', P.events);
 route('/events/:slug', P.eventPage); route('/request', P.request); route('/saved', P.saved);
 route('/shop/:store', P.shop); route('/shop/:store/:product', P.product);
