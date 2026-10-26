@@ -128,7 +128,7 @@
    "destination": "/api/og?kind=product&store=:store&product=:product"
   },
   {
-   "source": "/((?!api/|assets/|css/|js/|sw\\.js|manifest\\.webmanifest|offline\\.html|robots\\.txt|sitemap\\.xml).*)",
+   "source": "/((?!api/|assets/|css/|js/|sw\\.js|manifest\\.webmanifest|offline\\.html|robots\\.txt|sitemap\\.xml|about\\.html).*)",
    "destination": "/index.html"
   }
  ],
