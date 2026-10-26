@@ -282,3 +282,22 @@ button,a.btn,select,summary{min-height:44px}
 @media(max-width:599px){.legal-heading{padding:18px}.legal-content{padding:8px 16px}.site-footer{padding-bottom:28px}}
 
 .account-privacy details{margin-top:16px}.account-privacy form{display:grid;gap:12px;padding-top:12px}.consent{display:flex;align-items:flex-start;gap:10px}.consent input[type=checkbox]{width:20px;min-width:20px;height:24px}.privacy-inventory{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;font-size:.8rem}
+
+/* Mobile-first account privacy and discreet legal footer */
+.site-footer{padding:12px 0;margin-top:12px;font-size:.75rem}
+.site-footer .wrap{justify-content:center;gap:8px 14px}
+.site-footer nav{gap:10px 18px}
+.account-privacy{padding:20px!important}
+.privacy-top h2{font-size:1.25rem;margin:0 0 4px}
+.privacy-subtitle{color:var(--muted);font-size:.87rem;margin:0 0 12px}
+.privacy-links{display:flex;flex-wrap:wrap;gap:8px}
+.privacy-links a{font-size:.82rem;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:inline-flex;align-items:center;min-height:38px}
+.deletion-panel{border:1px solid #e8ddd5;background:#fdfbf9;border-radius:14px;padding:16px;margin-top:18px}
+.deletion-panel h3{font-size:1rem;margin:0 0 8px;color:#713e30}
+.deletion-explainer{font-size:.87rem;line-height:1.55;margin:0;color:#4e4e4e}
+.deletion-support{font-size:.8rem;color:var(--muted);line-height:1.5;margin:12px 0 0}
+.account-privacy #deletion-state:empty{display:none}
+.account-privacy #deletion-state{font-size:.83rem;overflow-wrap:anywhere;margin:12px 0}
+.deletion-details{margin-top:12px!important;padding-top:10px;border-top:1px solid #e9dfda}
+.deletion-details summary{font-size:.88rem;font-weight:700;color:#713e30;min-height:44px;display:flex;align-items:center;cursor:pointer}
+@media(max-width:599px){.site-footer{padding:9px 0;margin-top:8px}.site-footer .wrap{flex-direction:column;gap:5px}.site-footer nav{justify-content:center}.account-privacy{padding:16px!important}.deletion-panel{padding:13px}}
