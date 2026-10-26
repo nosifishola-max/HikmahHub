@@ -91,6 +91,13 @@ begin
   'active_listings',(select count(*) from public.products p join public.vendors v on v.id=p.vendor_id where v.owner_id=uid and p.status='approved'),
   'open_reports',(select count(*) from public.reports r where r.status in ('open','reviewing') and (r.reporter_id=uid or r.target_id in(select id from public.vendors where owner_id=uid) or r.target_id in(select p.id from public.products p join public.vendors v on v.id=p.vendor_id where v.owner_id=uid) or r.target_id in(select id from public.event_comments where user_id=uid))),
   'vendor_files',(select coalesce(jsonb_agg(jsonb_build_object('bucket',o.bucket_id,'path',o.name)),'[]') from storage.objects o where o.bucket_id in ('product-images','product-originals','vendor-logos') and exists(select 1 from public.vendors v where v.owner_id=uid and split_part(o.name,'/',1)=v.id::text)),
+  'db_file_references',(select coalesce(jsonb_agg(jsonb_build_object('bucket',f.bucket,'path',f.path)),'[]') from (
+   select 'product-images'::text bucket,i.path from public.product_images i join public.products p on p.id=i.product_id join public.vendors v on v.id=p.vendor_id where v.owner_id=uid
+   union select 'product-images',regexp_replace(i.path,'(\.[^.]+)$','_t\1') from public.product_images i join public.products p on p.id=i.product_id join public.vendors v on v.id=p.vendor_id where v.owner_id=uid
+   union select 'product-originals',i.original_path from public.product_images i join public.products p on p.id=i.product_id join public.vendors v on v.id=p.vendor_id where v.owner_id=uid and i.original_path is not null
+   union select 'vendor-logos',logo_path from public.vendors where owner_id=uid and logo_path is not null
+   union select 'event-images',d.image_path from public.campus_deals d join public.vendors v on v.id=d.vendor_id where v.owner_id=uid and d.image_path is not null
+  ) f),
   'shared_assets_require_manual_review',true,'erasure_performed',false
  ) into result;
  return result;

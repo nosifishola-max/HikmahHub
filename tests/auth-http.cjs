@@ -58,6 +58,7 @@ async function request(url,body,token){const r=await fetch(url,{signal:AbortSign
  r=await request(rest+'/rpc/admin_review_account_deletion',{p_request:deletionId,p_status:'completed',p_message:'Not a supported transition',p_version:1},adminToken);assert.ok(r.status>=400,'False completion allowed');
  r=await request(rest+'/rpc/admin_review_account_deletion',{p_request:deletionId,p_status:'on_hold',p_message:'A specific unresolved report requires restricted review. Contact support for the next review date.',p_version:1},adminToken);assert.ok(r.status<300,JSON.stringify(r));
  r=await request(rest+'/rpc/admin_review_account_deletion',{p_request:deletionId,p_status:'in_review',p_message:'Duplicate stale decision',p_version:1},adminToken);assert.ok(r.status>=400);
+ r=await request(rest+'/rpc/withdraw_account_deletion',{p_request:deletionId},token);assert.ok(r.status<300,JSON.stringify(r));
  const verified=await request(auth+'/user',null,token);assert.equal(verified.status,200,'Request prematurely deleted Auth user');
  const retained=execFileSync('psql',['-At','-c',"select count(*) from storage.objects where id='70000000-0000-0000-0000-000000000001'"],{encoding:'utf8'});assert.equal(retained.trim(),'1','Request deleted a public file prematurely');
  console.log('Deletion request privacy: real login, own-account scope, recent AMR/session, duplicate/retry, vendor inventory, no destructive mutations and admin-only review PASS.');

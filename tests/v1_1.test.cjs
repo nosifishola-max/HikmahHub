@@ -97,3 +97,24 @@ test('official academic choices retain unknown historical values without duplica
  assert.equal(options.at(-1),'Legacy department');
  assert.equal(optionsWithLegacy(['Law'],'Law').length,1);
 });
+
+test('deletion confirmation prevents RPCs without explicit consent or matching reauthentication',async()=>{
+ const {submitDeletionRequest}=await load('js/account-deletion.js',{[sbPath]:{sb},[routerPath]:{go(){},current:()=>0,onLeave(){}},[path.resolve('js/live.js')]:{watch(){},onResume(){}}});
+ let calls=0;const client={auth:{signInWithPassword:async()=>({data:{user:{id:'other'}},error:null})},rpc:async()=>{calls++;return{data:{id:'request'}}}};
+ const user={id:'owner',email:'owner@example.invalid'};
+ await assert.rejects(()=>submitDeletionRequest(client,user,'password','WRONG',true));
+ await assert.rejects(()=>submitDeletionRequest(client,user,'password','DELETE MY ACCOUNT',false));
+ await assert.rejects(()=>submitDeletionRequest(client,user,'password','DELETE MY ACCOUNT',true));assert.equal(calls,0);
+ client.auth.signInWithPassword=async()=>({data:{user:{id:'owner'}}});
+ const result=await submitDeletionRequest(client,user,'password','DELETE MY ACCOUNT',true);assert.equal(result.id,'request');assert.equal(calls,1);
+ client.rpc=async()=>({error:{code:'network'}});await assert.rejects(()=>submitDeletionRequest(client,user,'password','DELETE MY ACCOUNT',true));
+});
+
+test('policy pages describe review instead of pretending account erasure exists',async()=>{
+ const file=await fs.readFile('js/pages/legal.js','utf8');
+ assert.ok(file.includes('Submitting a request does not delete'));
+ assert.ok(file.includes('16–17'));
+ assert.ok(file.includes('nosifdigitalsolutions@gmail.com'));
+ assert.ok(file.includes('/privacy')&&file.includes('/terms'));
+ assert.ok(file.includes('no automatic deletion schedule'));
+});
