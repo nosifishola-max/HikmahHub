@@ -202,3 +202,17 @@ button,a.btn,select,summary{min-height:44px}
 .account-page{max-width:720px}.profile-header{display:flex;gap:16px;align-items:center;padding:20px 0}.profile-header h1{font-size:1.5rem;margin:0}.profile-header p{overflow-wrap:anywhere;margin:4px 0}.profile-header>div{min-width:0}.avatar{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:50%;background:var(--green);color:white;font-size:1.4rem}.profile-form{display:grid;gap:12px}.profile-form h2{margin:12px 0 0;font-size:1.15rem}.profile-form label{margin:0}.profile-form input,.profile-form select{width:100%;box-sizing:border-box}.profile-form button{position:sticky;bottom:calc(60px + env(safe-area-inset-bottom))}.pc-slide img{aspect-ratio:auto;max-height:none;width:100%;height:auto}.pc-slide .txt{padding:10px 16px 18px;gap:4px}.pc-slide h2:empty,.pc-slide p:empty{display:none}.pc-track{align-items:flex-start}.pc-slide{min-height:0}.pc-dots{position:static;background:var(--green)}
 @media(min-width:800px){.profile-form button{bottom:12px}}
 .pc-track{overflow-y:hidden}
+
+/* Mobile gutters: .pad's horizontal shorthand previously zeroed .wrap padding
+   on every .wrap.pad page (events, listings, stores and trending). */
+.wrap.pad{padding-inline:16px}
+#app{min-width:0;max-width:100%;overflow-x:clip}
+#app .wrap{min-width:0}
+#app h1,#app h2,#app h3,#app p,#app li,#app a{overflow-wrap:break-word}
+@media(max-width:599px){
+  .wrap{padding-inline:16px}
+  .wrap.pad{padding-inline:16px}
+  .grid,.pd{min-width:0}
+  .grid>* , .pd>*{min-width:0}
+  .contact-bar{padding-bottom:12px}
+}
