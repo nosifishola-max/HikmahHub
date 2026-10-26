@@ -16,6 +16,18 @@ async function request(url,body,token){const r=await fetch(url,{method:body?'POS
  r=await request(rest+'/rpc/set_event_like',{p_event:'20000000-0000-0000-0000-000000000099',p_like:true},token);assert.ok(r.status<300,JSON.stringify(r));
  r=await request(rest+'/rpc/add_event_comment',{p_event:'20000000-0000-0000-0000-000000000099',p_body:'See you there'},token);assert.ok(r.status<300,JSON.stringify(r));
  r=await request(rest+'/event_comments?select=first_name,body',null,token);assert.equal(r.data[0].first_name,'Amina');
+ const comment=await request(rest+'/event_comments?select=id',null,token);
+ r=await request(rest+'/reports',{reporter_id:id,target_type:'event_comment',target_id:comment.data[0].id,reason:'inappropriate'},token);assert.ok(r.status<300,JSON.stringify(r));
+ const adminSignup=await request(auth+'/signup',{email:'admin-test@example.invalid',password:'Disposable-admin-only-2026!'});assert.equal(adminSignup.status,200);
+ sql(`update public.profiles set role='admin' where id='${adminSignup.data.user.id}';`);
+ const adminLogin=await request(auth+'/token?grant_type=password',{email:'admin-test@example.invalid',password:'Disposable-admin-only-2026!'});assert.equal(adminLogin.status,200);const adminToken=adminLogin.data.access_token;
+ const queue=await request(rest+'/reports?select=id,status,content_snapshot',null,adminToken);assert.equal(queue.data[0].content_snapshot.title,'See you there');
+ const decision={p_report:queue.data[0].id,p_action:'hide_comment',p_reason:'Reviewed: inappropriate content',p_expected:'open'};
+ r=await request(rest+'/rpc/admin_moderate_report',decision,adminToken);assert.ok(r.status<300,JSON.stringify(r));
+ r=await request(rest+'/rpc/admin_moderate_report',decision,adminToken);assert.ok(r.status>=400,'Duplicate moderation accepted');
+ r=await request(rest+'/event_comments?select=id',null,token);assert.equal(r.data.length,0,'Hidden comment still public');
+ r=await request(rest+'/rpc/admin_moderate_report',{...decision,p_action:'restore',p_expected:'resolved'},adminToken);assert.ok(r.status<300,JSON.stringify(r));
+ r=await request(rest+'/admin_actions?select=details,admin_id',null,adminToken);assert.ok(r.data.some(a=>a.admin_id===adminSignup.data.user.id&&a.details.reason==='Reviewed: inappropriate content'));
  r=await request(rest+'/event_comments?select=user_id',null,token);assert.ok(r.status>=400,'Private comment identifiers exposed');
  r=await request(rest+'/rpc/admin_moderate_report',{p_report:'00000000-0000-0000-0000-000000000099',p_action:'dismiss',p_reason:'Not an admin',p_expected:'open'},token);assert.ok(r.status>=400);
  r=await request(rest+'/rpc/ensure_my_profile',{});assert.ok(r.status>=400);

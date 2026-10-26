@@ -54,6 +54,10 @@ jobs:
           node-version: 22
       - run: npm install --prefix /tmp/hikmah-tools playwright@1.56.1 --no-audit --no-fund
       - run: node tests/performance.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-ui-evidence
+          path: test-results/
   dependencies:
     runs-on: ubuntu-latest
     steps:

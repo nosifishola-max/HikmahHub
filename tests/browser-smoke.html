@@ -20,6 +20,18 @@ try {
  const cols = getComputedStyle(document.querySelector('.tabs')).gridTemplateColumns.split(' ');
  assert(innerWidth >= 800 ? getComputedStyle(document.querySelector('.tabs')).display === 'none' : cols.length === 6,'Responsive navigation columns');
  assert(document.documentElement.scrollWidth <= innerWidth,'No horizontal overflow');
- document.querySelector('#result').textContent='PASS: 7 offline browser assertions';
+ const { state } = await import('/js/auth.js');
+ state.user = {id:'00000000-0000-0000-0000-000000000001',email:'student@example.invalid'};
+ state.profile={full_name:'Amina Test',faculty:'Historical faculty',department:'Historical department',matric_number:'26/01HUI001'};
+ const { account } = await import('/js/pages/account.js');
+ await account(document.querySelector('#app'));
+ assert(document.querySelector('[name=matric_number]').placeholder==='26/01HUI001','Matric placeholder');
+ assert(document.querySelector('#faculty').value==='Historical faculty','Legacy faculty retained');
+ assert(document.querySelector('#department').value==='Historical department','Legacy department retained');
+ document.querySelector('#faculty').value='Faculty of Law';document.querySelector('#faculty').dispatchEvent(new Event('change'));
+ assert([...document.querySelector('#department').options].some(o=>o.value==='Law'),'Department options change');
+ assert(document.querySelector('#department').value==='Historical department','Changing faculty never silently clears a legacy department');
+ assert(document.documentElement.scrollWidth<=innerWidth,'Account has no horizontal overflow');
+ document.querySelector('#result').textContent='PASS: 13 offline browser assertions';
 } catch(e) { document.querySelector('#result').textContent='FAIL: '+e.message; }
 </script></body></html>

@@ -134,7 +134,7 @@ begin
   if not found then raise exception 'Comment already in this state'; end if;
  elsif r.target_type='event' then
   if p_action not in ('hide_listing','restore') then raise exception 'Action not permitted'; end if;
-  update public.events set status=case when p_action='restore' then 'published'::public.publish_status else 'cancelled'::public.publish_status end where id=r.target_id and status::text is distinct from case when p_action='restore' then 'published' else 'cancelled' end;
+  update public.events set status=case when p_action='restore' then 'published'::public.publish_status else 'cancelled'::public.publish_status end where id=r.target_id and status::text = case when p_action='restore' then 'cancelled' else 'published' end;
   if not found then raise exception 'Event already in this state'; end if;
  else raise exception 'Use the existing content review panel for this target'; end if;
  update public.reports set status=case when p_action='dismiss' then 'dismissed' else 'resolved' end,resolved_by=auth.uid(),resolved_at=now() where id=p_report;
