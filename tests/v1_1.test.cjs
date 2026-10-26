@@ -111,6 +111,7 @@ test('deletion confirmation prevents RPCs without explicit consent or matching r
 });
 
 test('policy pages describe review instead of pretending account erasure exists',async()=>{
+ const legal=await load('js/pages/legal.js',{[path.resolve('js/util.js')]:{setMeta(){}}});assert.equal(typeof legal.privacy,'function');assert.equal(typeof legal.terms,'function');
  const file=await fs.readFile('js/pages/legal.js','utf8');
  assert.ok(file.includes('Submitting a request does not delete'));
  assert.ok(file.includes('16–17'));
