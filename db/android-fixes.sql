@@ -132,6 +132,7 @@ begin
  if p_action='dismiss' then null;
  elsif r.target_type='product' then
   select vendor_id,status::text into v_id,old_state from public.products where id=r.target_id for update;
+  if old_state is null then raise exception 'Reported listing is no longer available'; end if;
   if p_action='request_changes' then update public.products set review_note=p_reason where id=r.target_id;
   elsif p_action='reject_listing' then perform public.admin_review_product(r.target_id,'rejected',p_reason);
   elsif p_action='hide_listing' then perform public.admin_review_product(r.target_id,'hidden',p_reason);
