@@ -73,7 +73,7 @@ begin
  if p_status not in ('in_review','on_hold','approved_for_erasure') or p_status is null then raise exception 'Invalid review status'; end if;
  if char_length(btrim(coalesce(p_message,''))) not between 10 and 1000 then raise exception 'Explain the decision and any restricted retention to the user'; end if;
  select * into r from public.account_deletion_requests where id=p_request for update;
- if r.id is null or r.version<>p_version or r.status in ('withdrawn','approved_for_erasure') then raise exception 'Request changed; refresh before reviewing'; end if;
+ if r.id is null or r.version<>p_version or (r.status='withdrawn' or (r.status='approved_for_erasure' and p_status<>'on_hold')) then raise exception 'Request changed; refresh before reviewing'; end if;
  update public.account_deletion_requests set status=p_status,public_message=btrim(p_message),version=version+1,updated_at=now() where id=r.id;
  insert into public.account_deletion_events(request_id,actor_id,action,reason) values(r.id,auth.uid(),p_status,btrim(p_message));
  -- No destructive executor exists. Approval records intent, NEVER completion.
