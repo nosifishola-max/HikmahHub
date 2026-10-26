@@ -280,3 +280,5 @@ button,a.btn,select,summary{min-height:44px}
 .legal-content h2{font-size:1.12rem;color:var(--green)}.legal-content p{line-height:1.75;margin:8px 0}
 .legal-note{font-size:.85rem;color:var(--muted);margin-top:16px}.auth-legal{line-height:1.55;color:var(--muted);margin:14px 0 0}
 @media(max-width:599px){.legal-heading{padding:18px}.legal-content{padding:8px 16px}.site-footer{padding-bottom:28px}}
+
+.account-privacy details{margin-top:16px}.account-privacy form{display:grid;gap:12px;padding-top:12px}.consent{display:flex;align-items:flex-start;gap:10px}.consent input[type=checkbox]{width:20px;min-width:20px;height:24px}.privacy-inventory{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;font-size:.8rem}

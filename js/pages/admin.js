@@ -11,7 +11,7 @@ import { normalizePhone } from '../phone.js';
 import { friendlyError } from '../validate.js';
 
 let tab = 'review', vFilter = 'pending', pFilter = 'pending';
-const TABS = { review: 'Review', overview: 'Overview', vendors: 'Vendors', products: 'Products', deals: 'Deals', events: 'Events', categories: 'Categories', reports: 'Reports', demand: 'Demand', promotions: 'Promotions', branding: 'Branding', storage: 'Storage' };
+const TABS = { review: 'Review', overview: 'Overview', vendors: 'Vendors', products: 'Products', deals: 'Deals', events: 'Events', categories: 'Categories', reports: 'Reports', deletion: 'Deletion requests', demand: 'Demand', promotions: 'Promotions', branding: 'Branding', storage: 'Storage' };
 const run = async (p, ok = 'Done') => { const { error } = await p; toast(error ? error.message : ok); return !error; };
 
 export async function admin(app) {
@@ -26,7 +26,7 @@ export async function admin(app) {
   app.innerHTML = `<div class="wrap pad"><h1>Admin</h1><div class="seg">${Object.entries(TABS).map(([k, l]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div><div id="tab">Loading…</div></div>`;
   $$('.seg button').forEach(b => b.onclick = () => { tab = b.dataset.t; admin(app); });
   if (!stopA) { stopA = [watch('vendors', onAdminChange), watch('products', onAdminChange)]; onLeave(() => { stopA?.forEach(f => f()); stopA = null; }); }
-  const run = () => ({ review, overview, vendors, products, deals, events, categories, reports, demand, promotions, branding, storage })[tab]($('#tab'));
+  const run = () => ({ review, overview, vendors, products, deals, events, categories, reports, deletion, demand, promotions, branding, storage })[tab]($('#tab'));
   await run();
   if (focusId && !document.querySelector(`[data-fid="${focusId}"]`) && (tab === 'vendors' || tab === 'products')) { if (tab === 'vendors') vFilter = 'all'; else pFilter = 'all'; await run(); }   // already reviewed? look in All
   applyFocus();
@@ -270,3 +270,5 @@ async function promotions(el, editId) {
     if (await run(sb.from('promotions').delete().eq('id', x.id), 'Deleted')) { if (x.image_path && !(await imageStillUsed(x.image_path, x.id))) await sb.storage.from('promo-banners').remove([x.image_path]); promotions(el); } });
 }
 
+
+async function deletion(el){return (await import('../deletion-review.js')).deletionReview(el);}

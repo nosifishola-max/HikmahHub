@@ -35,7 +35,7 @@ jobs:
       PGDATABASE: hikmah_test
     steps:
       - uses: actions/checkout@v4
-      - run: psql -v ON_ERROR_STOP=1 -f tests/local-bootstrap.sql -f tests/public-schema.sql -f tests/public-grants.sql -f db/v1_1.sql -f db/android-fixes.sql -f tests/database-contract.sql -f tests/database-roles.sql -f tests/android-database.sql
+      - run: psql -v ON_ERROR_STOP=1 -f tests/local-bootstrap.sql -f tests/public-schema.sql -f tests/public-grants.sql -f db/v1_1.sql -f db/android-fixes.sql -f db/privacy-requests.sql -f tests/database-contract.sql -f tests/database-roles.sql -f tests/android-database.sql
       - name: Rehearse disposable backup restore
         run: |
           psql -v ON_ERROR_STOP=1 -f tests/backup-fixture.sql

@@ -15,7 +15,7 @@ docker run -d --name hikmah-auth --network host \
  supabase/gotrue:v2.177.0
 for attempt in {1..40}; do if curl -fsS http://127.0.0.1:9999/health >/dev/null; then break; fi; sleep 2; done
 curl -fsS http://127.0.0.1:9999/health
-psql -v ON_ERROR_STOP=1 -f tests/local-bootstrap.sql -f tests/public-schema.sql -f tests/public-grants.sql -f db/v1_1.sql -f db/android-fixes.sql
+psql -v ON_ERROR_STOP=1 -f tests/local-bootstrap.sql -f tests/public-schema.sql -f tests/public-grants.sql -f db/v1_1.sql -f db/android-fixes.sql -f db/privacy-requests.sql
 psql -v ON_ERROR_STOP=1 <<'SQL'
 create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
 create role authenticator login noinherit password 'local-api-only';
