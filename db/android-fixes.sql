@@ -78,18 +78,34 @@ create trigger zz_validate_profile_fields before update on public.profiles for e
 
 -- Snapshot is captured at report insertion, so subsequent edits do not erase review context.
 alter table public.reports add column content_snapshot jsonb;
-create function private.snapshot_report() returns trigger language plpgsql security definer set search_path='' as $$
+create function private.report_content(p_type text,p_target uuid) returns jsonb language plpgsql security definer set search_path='' as $$
+declare snapshot jsonb;
 begin
- if new.target_type='product' then select jsonb_build_object('title',p.title,'vendor',v.store_name,'path','/shop/'||v.slug||'/'||p.slug) into new.content_snapshot from public.products p join public.vendors v on v.id=p.vendor_id where p.id=new.target_id;
- elsif new.target_type='store' then select jsonb_build_object('title',v.store_name,'vendor',v.store_name,'path','/shop/'||v.slug) into new.content_snapshot from public.vendors v where v.id=new.target_id;
- elsif new.target_type='event' then select jsonb_build_object('title',e.title,'path','/events/'||e.slug) into new.content_snapshot from public.events e where e.id=new.target_id;
- elsif new.target_type='event_comment' then select jsonb_build_object('title',c.body,'first_name',c.first_name,'path','/events/'||e.slug||'#comment-'||c.id) into new.content_snapshot from public.event_comments c join public.events e on e.id=c.event_id where c.id=new.target_id;
+ if p_type='product' then select jsonb_build_object('title',p.title,'vendor',v.store_name,'path','/shop/'||v.slug||'/'||p.slug) into snapshot from public.products p join public.vendors v on v.id=p.vendor_id where p.id=p_target;
+ elsif p_type='store' then select jsonb_build_object('title',v.store_name,'vendor',v.store_name,'path','/shop/'||v.slug) into snapshot from public.vendors v where v.id=p_target;
+ elsif p_type='event' then select jsonb_build_object('title',e.title,'path','/events/'||e.slug) into snapshot from public.events e where e.id=p_target;
+ elsif p_type='event_comment' then select jsonb_build_object('title',c.body,'first_name',c.first_name,'path','/events/'||e.slug||'#comment-'||c.id) into snapshot from public.event_comments c join public.events e on e.id=c.event_id where c.id=p_target;
  end if;
- return new;
+ return snapshot;
 end $$;
+revoke all on function private.report_content(text,uuid) from public,anon,authenticated;
+create function private.snapshot_report() returns trigger language plpgsql security definer set search_path='' as $$
+begin new.content_snapshot=private.report_content(new.target_type,new.target_id); return new; end $$;
 revoke all on function private.snapshot_report() from public,anon,authenticated;
 create trigger snapshot_report before insert on public.reports for each row execute function private.snapshot_report();
 
+create function public.admin_report_queue(p_limit integer default 50) returns setof public.reports
+language plpgsql security definer set search_path='' as $$
+declare r public.reports;
+begin
+ if not public.is_admin() then raise exception 'Admin only' using errcode='42501'; end if;
+ for r in select * from public.reports order by created_at desc limit least(greatest(p_limit,1),100) loop
+  if r.content_snapshot is null then r.content_snapshot=coalesce(private.report_content(r.target_type,r.target_id),'{}'::jsonb)||jsonb_build_object('historical_context',true); end if;
+  return next r;
+ end loop;
+end $$;
+revoke all on function public.admin_report_queue(integer) from public,anon;
+grant execute on function public.admin_report_queue(integer) to authenticated;
 create table public.moderation_templates(action text primary key,message text not null check(char_length(message) between 3 and 1000));
 alter table public.moderation_templates enable row level security;
 revoke all on public.moderation_templates from anon,authenticated;

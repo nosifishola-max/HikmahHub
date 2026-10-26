@@ -70,6 +70,7 @@ jobs:
       - run: npm audit --omit=dev
 
   authenticated:
+    timeout-minutes: 6
     runs-on: ubuntu-latest
     services:
       postgres:

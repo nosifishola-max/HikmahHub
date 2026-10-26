@@ -1,4 +1,5 @@
 import { sb } from '../supabase.js';
+import { academics, optionsWithLegacy } from '../academics.js';
 import { normalizeMatric } from '../vendor-identity.js';
 import { state, loadSession, isVendor, refreshProfile } from '../auth.js';
 import { onLeave } from '../router.js';
@@ -34,13 +35,17 @@ async function apply(app, ex = null) {
   if (ex) { const { data } = await sb.from('vendor_review_events').select('status_to,reason,created_at').eq('vendor_id', ex.id).order('id', { ascending: false }).limit(6); hist = data || []; }
   app.innerHTML = `<div class="wrap pad" style="max-width:600px"><h1>${ex ? 'Update your application' : 'Open your store'}</h1>
   ${ex ? `<div class="notice bad"><b>Your application was not approved.</b><br>Reason: ${esc(ex.rejection_reason || 'No reason was recorded.')}<br><span class="small">Fix the details below and resubmit. It goes back into the review queue.</span></div>` : '<p class="muted">Free for students. HikmahHub reviews every application before your store goes live.</p>'}
-  <form id="f" class="panel" novalidate><p class="small muted">Your matric number is private and used only to verify your application.</p><label>Matric number<input name="matric_number" required maxlength="80" value="${esc(state.profile?.matric_number)}"></label><label>Faculty<input name="faculty" required maxlength="120" value="${esc(state.profile?.faculty)}"></label><label>Department<input name="department" required maxlength="120" value="${esc(state.profile?.department)}"></label><label for="sn">Store name</label><input id="sn" name="store_name" required minlength="2" maxlength="80" value="${esc(ex?.store_name)}">
+  <form id="f" class="panel" novalidate><p class="small muted">Your matric number is private and used only to verify your application.</p><label>Matric number<input placeholder="26/01HUI001" name="matric_number" required maxlength="80" value="${esc(state.profile?.matric_number)}"></label><label>Faculty<select name="faculty" required id="faculty"></select></label><label>Department<select name="department" required id="department"></select></label><label for="sn">Store name</label><input id="sn" name="store_name" required minlength="2" maxlength="80" value="${esc(ex?.store_name)}">
   <label for="wa">WhatsApp number</label><input id="wa" name="whatsapp_number" required placeholder="e.g. 08012345678 or +2348012345678" inputmode="tel" autocomplete="tel" value="${esc(ex?.whatsapp_number)}"><div class="small muted">Buyers will contact you on this number. Nigerian numbers can start with 0; other countries start with + and the country code.</div>
   <label for="bc">What do you sell?</label><input id="bc" name="business_category" placeholder="e.g. Phones and accessories" value="${esc(ex?.business_category)}">
   <label for="cl">Campus location</label><input id="cl" name="campus_location" value="${esc(ex?.campus_location)}">
   <label for="ds">About your store</label><textarea id="ds" name="description" maxlength="1000">${esc(ex?.description)}</textarea>
   <p id="err" class="small" style="color:var(--danger)" role="alert"></p><button class="btn" style="margin-top:6px">${ex ? 'Resubmit application' : 'Submit application'}</button></form>
   ${hist.length ? `<details class="rv"><summary>Review history</summary><ul>${hist.map(h => `<li class="small">${fmtDate(h.created_at)}: ${esc(h.status_to)}${h.reason ? ` – ${esc(h.reason)}` : ''}</li>`).join('')}</ul></details>` : ''}</div>`;
+  const options = (values, value) => '<option value="">Select</option>'+optionsWithLegacy(values,value).map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v)}${values.includes(v)?'':' (existing value)'}</option>`).join('');
+  $('#faculty').innerHTML=options(Object.keys(academics),state.profile?.faculty);
+  $('#department').innerHTML=options(academics[state.profile?.faculty]||[],state.profile?.department);
+  $('#faculty').onchange=()=>{const old=$('#department').value;$('#department').innerHTML=options(academics[$('#faculty').value]||[],old);};
   $('#f').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target), err = $('#err'), b = e.submitter; err.textContent = '';
     if ((d.store_name || '').trim().length < 2) { err.textContent = 'Enter your store name (at least 2 characters).'; return; }
