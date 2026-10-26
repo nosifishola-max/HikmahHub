@@ -1,7 +1,7 @@
 import { sb } from '../supabase.js';
 import { recordAnalytics } from '../analytics.js';
 const mountEventDiscussion = async (...args) => (await import('../event-discussion.js')).mountEventDiscussion(...args);
-import { state, scope } from '../auth.js';
+import { state, scope, requireProfile } from '../auth.js';
 import { $, $$, esc, money, img, fmtDate, toast, waLink, share, setMeta, skeleton, errBox, formData } from '../util.js';
 import { go, current, onLeave } from '../router.js';
 import { mountPromos } from './promos.js';
@@ -29,9 +29,9 @@ const anonHtml = data => signinCta() + `<div class="sec"><div class="head"><h2>F
   <div class="sec"><div class="panel"><h3>Sell on campus</h3><p class="muted">Student with something to sell? Create an account, then apply to open your free store.</p><a class="btn ghost" href="/login?mode=signup" data-link>Create account</a></div></div>`;
 
 export async function home(app) {
-  setMeta('Campus marketplace', "Discover what's being sold, wanted and happening around your campus."); const t = current(), sc = scope();
-  app.innerHTML = `<section class="hero"><div class="wrap"><h1>Discover what's being sold, wanted and happening on campus</h1>
-    <p>Browse student vendors, compare prices, then chat the seller on WhatsApp.</p>
+  setMeta("Al-Hikmah University's Campus Marketplace", 'Discover products, services, student businesses, events and opportunities across Al-Hikmah University, Ilorin. Buy, sell, request items and connect with campus vendors.'); const t = current(), sc = scope();
+  app.innerHTML = `<section class="hero"><div class="wrap"><h1>HikmahHub — Al-Hikmah University's Campus Marketplace</h1>
+    <p>Discover products, services, student businesses, events and opportunities across Al-Hikmah University, Ilorin. Buy, sell, request items, support campus vendors and connect directly with sellers.</p>
     <form action="/marketplace" role="search"><input name="q" type="search" placeholder="Search phones, food, services…" aria-label="Search"><button class="btn gold">Search</button></form></div></section>
     <div class="wrap"><div id="promos"></div><div class="sec"><div class="chips" id="cats"></div></div><div id="feed">${skeleton(4)}</div></div>`;
   mountPromos($('#promos'));
@@ -109,7 +109,7 @@ export async function product(app, [store, slug]) {
   const heart = on => `<svg viewBox="0 0 24 24" width="20" height="20" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 000-7.8z"/></svg>`;
   import('../likes.js').then(({ createLikes, likeLabel }) => {
     const btn = $('#like'); if (!btn || t0 !== current()) return; let pop = false;
-    const ctl = createLikes({ setLike: async v => { const { data, error } = await sb.rpc('set_product_like', { p_product: p.id, p_like: v }); if (error) throw error; return data[0]; },
+    const ctl = createLikes({ setLike: async v => { await requireProfile(); const { data, error } = await sb.rpc('set_product_like', { p_product: p.id, p_like: v }); if (error) throw error; return data[0]; },
       onChange: s => { btn.setAttribute('aria-pressed', String(s.liked)); btn.setAttribute('aria-label', s.liked ? 'Unlike this product' : 'Like this product'); btn.innerHTML = `${heart(s.liked)}<span aria-live="polite">${likeLabel(s.count)}</span>`;
         if (pop) { btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop'); pop = false; } if (s.error) toast('Could not update your like. Check your connection and try again.'); } });
     ctl.reset({ count: 0, liked: false });
@@ -198,8 +198,11 @@ export async function request(app, _, qs) {
   const count = async () => { const t = $('[name=title]').value.trim(); if (t.length < 3) return; const { data } = await sb.rpc('demand_count', { p_term: t }); $('#cnt').textContent = data > 0 ? `${data} student${data > 1 ? 's are' : ' is'} already looking for this.` : ''; };
   $('[name=title]').onblur = count; count();
   $('#f').onsubmit = async e => { e.preventDefault(); const d = formData(e.target);
-    const { error } = await sb.from('demand_requests').insert({ user_id: state.user.id, title: d.title.trim(), description: d.description || null, category_id: d.category_id || null, budget_max: d.budget_max || null });
-    if (error) return toast(error.message); toast('Request sent'); go('/request'); };
+    const button = e.submitter; button.disabled = true;
+    try { await requireProfile(); const { error } = await sb.from('demand_requests').insert({ user_id: state.user.id, title: d.title.trim(), description: d.description || null, category_id: d.category_id || null, budget_max: d.budget_max || null });
+      if (error) throw error; toast('Your request was sent. Campus vendors can now see it.'); go('/request');
+    } catch { toast('Could not send your request. Check your connection, sign in again and retry. If this continues, contact HikmahHub support.'); }
+    finally { button.disabled = false; } };
 }
 
 export async function saved(app) {

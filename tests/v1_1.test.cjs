@@ -89,3 +89,11 @@ test('realtime invalidation cannot store an obsolete in-flight response', async 
  invalidate('mk:');finish('old');await first;
  assert.equal(await cached('mk:list',60000,async()=>'new'),'new');
 });
+
+test('official academic choices retain unknown historical values without duplication', async()=>{
+ const {academics,optionsWithLegacy}=await load('js/academics.js');
+ assert.ok(academics['Faculty of Computing, Engineering and Technology'].includes('Computer Sciences'));
+ const options=optionsWithLegacy(academics['Faculty of Education'],'Legacy department');
+ assert.equal(options.at(-1),'Legacy department');
+ assert.equal(optionsWithLegacy(['Law'],'Law').length,1);
+});

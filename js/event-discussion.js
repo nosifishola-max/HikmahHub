@@ -29,7 +29,7 @@ export async function mountEventDiscussion(el, eventId) {
   ctl.reset(ctl.state); button.onclick = () => ctl.toggle();
   const draw = rows => {
     if (!live()) return;
-    el.querySelector('#event-comments').innerHTML = rows.length ? rows.map(c => `<article class="panel"><b>${esc(c.first_name)}</b><p style="white-space:pre-wrap">${esc(c.body)}</p><button class="btn sm ghost" data-report-comment="${c.id}">Report comment</button></article>`).join('') : '<p class="muted">No comments yet. Start the conversation.</p>';
+    el.querySelector('#event-comments').innerHTML = rows.length ? rows.map(c => `<article class="panel" id="comment-${c.id}"><b>${esc(c.first_name)}</b><p style="white-space:pre-wrap">${esc(c.body)}</p><button class="btn sm ghost" data-report-comment="${c.id}">Report comment</button></article>`).join('') : '<p class="muted">No comments yet. Start the conversation.</p>';
     el.querySelectorAll('[data-report-comment]').forEach(b => b.onclick = async () => { b.disabled = true; const { error } = await sb.from('reports').insert({ reporter_id: state.user.id, target_type: 'event_comment', target_id: b.dataset.reportComment, reason: 'inappropriate' }); if (live()) { toast(error ? 'Could not send report. Try again.' : 'Report sent for review.'); b.disabled = false; } });
   };
   draw(comments.data);

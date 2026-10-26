@@ -5,7 +5,7 @@ insert into auth.users(id,email) values
 ('00000000-0000-0000-0000-000000000002','admin@example.invalid'),
 ('00000000-0000-0000-0000-000000000003','vendor@example.invalid');
 insert into public.profiles(id,full_name,role,matric_number,faculty,department) values
-('00000000-0000-0000-0000-000000000001','Amina Private Family','student','ahu/001','Science','Computing'),
+('00000000-0000-0000-0000-000000000001','Amina Private Family','student','ahu/001','Faculty of Education','Science Education'),
 ('00000000-0000-0000-0000-000000000002','Admin User','admin',null,null,null),
 ('00000000-0000-0000-0000-000000000003','Legacy Vendor','vendor',null,null,null);
 -- Insert legacy vendor before checking trigger semantics by disabling only new validation locally.
@@ -23,14 +23,14 @@ end $$;
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
-update public.profiles set faculty='' where id='00000000-0000-0000-0000-000000000001';
+update public.profiles set faculty='',department='' where id='00000000-0000-0000-0000-000000000001';
 do $$ begin
  begin
   insert into public.vendors(owner_id,store_name,slug,whatsapp_number) values('00000000-0000-0000-0000-000000000001','Student store','student-store','2348012345678');
   raise exception 'TEST: missing faculty accepted';
  exception when others then if SQLERRM not like '%faculty and department are required%' then raise; end if; end;
 end $$;
-update public.profiles set faculty='Science' where id='00000000-0000-0000-0000-000000000001';
+update public.profiles set faculty='Faculty of Education',department='Science Education' where id='00000000-0000-0000-0000-000000000001';
 insert into public.vendors(owner_id,store_name,slug,whatsapp_number) values('00000000-0000-0000-0000-000000000001','Student store','student-store','2348012345678');
 select public.set_event_like('20000000-0000-0000-0000-000000000001',true);
 select public.set_event_like('20000000-0000-0000-0000-000000000001',true);

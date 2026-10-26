@@ -160,14 +160,7 @@ async function categories(el) {
   $$('[data-t]', el).forEach(b => b.onclick = async () => { if (await run(sb.from('categories').update({ is_active: b.dataset.v === 'true' }).eq('id', b.dataset.t))) again(); });
 }
 
-async function reports(el) {
-  const { data } = await sb.from('reports').select('*').order('created_at', { ascending: false }).limit(100);
-  const ids = (data || []).filter(r => r.target_type === 'event_comment').map(r => r.target_id);
-  const comments = ids.length ? await sb.from('event_comments').select('id,first_name,body,hidden').in('id', ids) : { data: [] };
-  const context = new Map((comments.data || []).map(c => [c.id, c]));
-  el.innerHTML = table(['Report', 'Status', 'Actions'], (data || []).map(r => `<tr><td><b>${esc(r.reason)}</b> on ${r.target_type}<br><span class="small muted">${fmtDate(r.created_at)}</span><br>${esc(r.details || '')}${context.has(r.target_id) ? `<blockquote>${esc(context.get(r.target_id).first_name)}: ${esc(context.get(r.target_id).body)}</blockquote>` : ''}</td><td>${r.status}</td><td><div class="row"><button class="btn sm" data-r="resolved" data-id="${r.id}">Resolve</button><button class="btn sm danger" data-r="resolved" data-h="1" data-id="${r.id}">Resolve and hide</button><button class="btn sm ghost" data-r="dismissed" data-id="${r.id}">Dismiss</button></div></td></tr>`));
-  $$('[data-r]', el).forEach(b => b.onclick = async () => { if (await run(sb.rpc('admin_resolve_report', { p_report: b.dataset.id, p_status: b.dataset.r, p_hide_target: !!b.dataset.h }), 'Report updated')) again(); });
-}
+async function reports(el) { const { moderationQueue } = await import('../moderation-queue.js'); return moderationQueue(el); }
 
 async function demand(el) {
   const { data } = await sb.from('demand_requests').select('id,title,status,budget_max,created_at').order('created_at', { ascending: false }).limit(100);
