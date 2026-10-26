@@ -3,10 +3,11 @@ set -euo pipefail
 # Only CI localhost services. No Supabase project is linked or created.
 TEST_JWT_SECRET=disposable-ci-jwt-secret-only-at-least-32-characters
 export TEST_JWT_SECRET
+psql -v ON_ERROR_STOP=1 -c 'create schema auth;'
 docker run -d --name hikmah-auth --network host \
  -e GOTRUE_API_HOST=0.0.0.0 -e GOTRUE_API_PORT=9999 -e API_EXTERNAL_URL=http://127.0.0.1:9999 \
  -e GOTRUE_SITE_URL=http://localhost:5267 -e GOTRUE_DB_DRIVER=postgres \
- -e GOTRUE_DB_DATABASE_URL=postgres://postgres:localtest@127.0.0.1:5432/hikmah_test \
+ -e GOTRUE_DB_NAMESPACE=auth -e GOTRUE_DB_DATABASE_URL=postgres://postgres:localtest@127.0.0.1:5432/hikmah_test \
  -e GOTRUE_JWT_SECRET="$TEST_JWT_SECRET" -e GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated \
  -e GOTRUE_JWT_AUD=authenticated -e GOTRUE_MAILER_AUTOCONFIRM=true -e GOTRUE_EXTERNAL_EMAIL_ENABLED=true \
  supabase/gotrue:v2.177.0
