@@ -27,7 +27,8 @@ async function serve(root, port) {
  await context.setOffline(true);await page.waitForTimeout(500);if(!await page.locator('.hero').count())throw Error('Offline page lost hero');await context.setOffline(false);
  await context.close();
  }
- const shot=await browser.newPage({viewport:{width:390,height:844}});await shot.goto('http://localhost:5269/tests/browser-smoke.html');await shot.waitForFunction(()=>document.querySelector('#result')?.textContent.startsWith('PASS:'));fs.mkdirSync('test-results',{recursive:true});await shot.screenshot({path:'test-results/android-account.png',fullPage:true});await shot.close();
+ fs.mkdirSync('test-results',{recursive:true});
+ for(const width of [320,360,390,768,1280]){const shot=await browser.newPage({viewport:{width,height:844}});await shot.goto('http://localhost:5269/tests/browser-smoke.html');await shot.waitForFunction(()=>document.querySelector('#result')?.textContent.startsWith('PASS:'));if(await shot.evaluate(()=>innerWidth)!==width)throw Error('Viewport was not applied');await shot.screenshot({path:`test-results/android-account-${width}.png`,fullPage:true});await shot.close();} console.log('Exact Playwright viewports 320/360/390/768/1280 and account screenshot assertions PASS');
  fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/performance.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results));
  if(results.some(r=>!r.rendered))throw Error('Homepage did not render');
  } finally {await browser.close();before.kill();after.kill();}

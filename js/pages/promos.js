@@ -23,7 +23,12 @@ export function buildCarousel(el, promos, { auto = false } = {}) {
   const n = promos.length; if (!n) { el.innerHTML = ''; return () => { }; }
   el.innerHTML = `<section class="pc" role="region" aria-roledescription="carousel" aria-label="Campus promotions"><div class="pc-track" tabindex="0">${promos.map((p, i) => slideHtml(p, i, n)).join('')}</div>
   ${n > 1 ? `<button class="pc-nav pc-prev" aria-label="Previous promotion">‹</button><button class="pc-nav pc-next" aria-label="Next promotion">›</button><div class="pc-dots">${promos.map((_, i) => `<button aria-label="Go to promotion ${i + 1}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div>` : ''}</section>`;
-  if (n < 2) return () => { };
+  const trackEl=el.querySelector('.pc-track');
+  const fitActive=()=>{ const index=Math.round(trackEl.scrollLeft/Math.max(trackEl.clientWidth,1));const slide=trackEl.children[index];if(slide)trackEl.style.height=slide.getBoundingClientRect().height+'px'; };
+  const observer=typeof ResizeObserver==='function'?new ResizeObserver(fitActive):null;
+  for(const slide of trackEl.children)observer?.observe(slide);
+  trackEl.addEventListener('scroll',fitActive,{passive:true});fitActive();
+  if (n < 2) return () => { observer?.disconnect(); };
   const track = el.querySelector('.pc-track'), dots = [...el.querySelectorAll('.pc-dots button')]; let idx = 0, timer = null, stopped = !auto || matchMedia('(prefers-reduced-motion: reduce)').matches;
   const loadSlide = i => { const image = track.children[i]?.querySelector('img[data-src]'); if (image) { image.src = image.dataset.src; delete image.dataset.src; } };
   const go = i => { idx = (i + n) % n; loadSlide(idx); track.scrollTo({ left: idx * track.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
@@ -34,7 +39,7 @@ export function buildCarousel(el, promos, { auto = false } = {}) {
   const halt = () => { stopped = true; clearInterval(timer); };           // any interaction stops auto-rotation for good
   ['pointerdown', 'touchstart', 'focusin', 'keydown', 'mouseenter'].forEach(ev => el.addEventListener(ev, halt, { passive: true }));
   if (!stopped) timer = setInterval(() => { if (document.hidden) return; go(idx + 1); }, 7000);
-  return () => clearInterval(timer);
+  return () => { clearInterval(timer);observer?.disconnect();clearTimeout(sync.t); };
 }
 
 // Visibility is enforced by the database (RLS: active AND inside its window) and the query below. The browser only decides WHEN to re-check:
