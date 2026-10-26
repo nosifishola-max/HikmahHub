@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
+test "${PGHOST:-}" = localhost
+test "${PGDATABASE:-}" = hikmah_test
 # Only CI localhost services. No Supabase project is linked or created.
 TEST_JWT_SECRET=disposable-ci-jwt-secret-only-at-least-32-characters
 export TEST_JWT_SECRET
-psql -v ON_ERROR_STOP=1 -c 'create schema auth;'
+psql -v ON_ERROR_STOP=1 -c 'create schema auth; alter role postgres set search_path to auth,public;'
 docker run -d --name hikmah-auth --network host \
  -e GOTRUE_API_HOST=0.0.0.0 -e GOTRUE_API_PORT=9999 -e API_EXTERNAL_URL=http://127.0.0.1:9999 \
  -e GOTRUE_SITE_URL=http://localhost:5267 -e GOTRUE_DB_DRIVER=postgres \
