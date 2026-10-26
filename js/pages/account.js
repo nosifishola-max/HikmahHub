@@ -42,7 +42,7 @@ export async function login(app, _, qs) {
       <button class="btn" id="go" style="width:100%;margin-top:14px">${btn}</button><p id="msg" class="small" role="alert" aria-live="polite"></p></form>
       <div class="auth-links">${mode === 'signin' ? '<p><a href="#" id="fg">Forgot password?</a></p>' : ''}
       <p>${mode === 'signup' ? 'Already have an account? <a href="#" id="sw">Sign in</a>' : mode === 'forgot' ? '<a href="#" id="sw">Back to sign in</a>' : 'New to HikmahHub? <a href="#" id="sw2">Create an account</a>'}</p></div>
-      <p class="auth-note">${mode === 'signup' ? 'Every student can create an account. Vendors apply for store access after joining.' : mode === 'forgot' ? 'Check your inbox and Spam folder for the reset email.' : 'Your account information stays private and secure.'}</p></div></div>`;
+      <p class="auth-note">${mode === 'signup' ? 'Every student can create an account. Vendors apply for store access after joining.' : mode === 'forgot' ? 'Check your inbox and Spam folder for the reset email.' : 'Your account information stays private and secure.'}</p><p class="auth-legal small">By creating an account, you agree to our <a href="/terms" data-link>Terms &amp; Conditions</a> and acknowledge our <a href="/privacy" data-link>Privacy Policy</a>.</p></div></div>`;
     bindPasswordToggles(app);
     const to = m => e => { e.preventDefault(); mode = m; draw(); };
     $('#sw') && ($('#sw').onclick = to('signin')); $('#sw2') && ($('#sw2').onclick = to('signup')); $('#fg') && ($('#fg').onclick = to('forgot'));
