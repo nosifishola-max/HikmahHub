@@ -38,11 +38,11 @@ export async function login(app, _, qs) {
       : mode === 'forgot' ? `<p class="muted small">Enter the email you registered with and we'll send you a reset link.</p><label for="em">Email</label><input id="em" name="email" type="email" required autocomplete="email" inputmode="email">`
       : `<label for="em">Email</label><input id="em" name="email" type="email" required autocomplete="email" inputmode="email">${passwordField('password', 'Password')}`;
     const btn = { signin: 'Sign in', signup: 'Create account', forgot: 'Send reset link' }[mode];
-    app.innerHTML = `<div class="wrap pad" style="max-width:460px"><h1>${title}</h1><form id="f" class="panel" novalidate>${fields}
+    app.innerHTML = `<div class="wrap pad auth-shell"><div class="auth-card"><h1>${title}</h1><p class="auth-intro">${mode === "signin" ? "Welcome back. Sign in to your campus marketplace." : mode === "signup" ? "Join the Al-Hikmah University marketplace community." : "Recover access to your HikmahHub account."}</p><form id="f" class="panel" novalidate>${fields}
       <button class="btn" id="go" style="width:100%;margin-top:14px">${btn}</button><p id="msg" class="small" role="alert" aria-live="polite"></p></form>
-      ${mode === 'signin' ? '<p><a href="#" id="fg">Forgot password?</a></p>' : ''}
-      <p>${mode === 'signup' ? 'Already have an account? <a href="#" id="sw">Sign in</a>' : mode === 'forgot' ? '<a href="#" id="sw">Back to sign in</a>' : 'New to HikmahHub? <a href="#" id="sw2">Create an account</a>'}</p>
-      ${mode === 'signup' ? '<p class="small muted">Every student has an account. Vendors apply for store access from their account after joining.</p>' : ''}</div>`;
+      <div class="auth-links">${mode === 'signin' ? '<p><a href="#" id="fg">Forgot password?</a></p>' : ''}
+      <p>${mode === 'signup' ? 'Already have an account? <a href="#" id="sw">Sign in</a>' : mode === 'forgot' ? '<a href="#" id="sw">Back to sign in</a>' : 'New to HikmahHub? <a href="#" id="sw2">Create an account</a>'}</p></div>
+      <p class="auth-note">${mode === 'signup' ? 'Every student can create an account. Vendors apply for store access after joining.' : mode === 'forgot' ? 'Check your inbox and Spam folder for the reset email.' : 'Your account information stays private and secure.'}</p></div></div>`;
     bindPasswordToggles(app);
     const to = m => e => { e.preventDefault(); mode = m; draw(); };
     $('#sw') && ($('#sw').onclick = to('signin')); $('#sw2') && ($('#sw2').onclick = to('signup')); $('#fg') && ($('#fg').onclick = to('forgot'));
