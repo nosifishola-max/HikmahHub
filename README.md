@@ -80,3 +80,12 @@ Requires Node 18+. In the project folder run `npm run dev` (or `node dev-server.
 - **Full-screen viewer** (same file): tap the photo. Swipe between photos, pinch-zoom, double-tap zoom, pan, Esc / arrow keys, mouse-wheel zoom, focus trap, scroll lock, phone Back button closes it. Opens on the photo you tapped and returns the gallery to the photo you ended on.
 - **Watermark (design v2)** (`js/branding.js`, `assets/logo-wm.png`): small white HikmahHub logo with the store name under it, bottom-right, soft shadow, no box. Baked into the delivered image so downloads and shares carry it; the private original master is never modified. The gallery adds no CSS overlay, so there is no double watermark. After deploying: Admin -> Branding -> **Regenerate all** rebuilds existing images in the new design from the private masters.
 - **Likes** reuse the existing favourites table `product_saves` (one row per user and product = no duplicates). `get_product_likes` gives the count + "did I like it" in one call (works logged out), `set_product_like` is idempotent. Only approved products from approved stores can be liked. The old Save button is replaced by the heart; the Saved page is now "Liked products".
+
+
+## v1.1 development
+
+See [release review, migration, verification and rollback notes](docs/v1.1-release.md). Run `npm test` for offline regression tests. Database changes are review-only and require explicit approval before production application.
+
+Latest release decision: [pre-deployment audit, measured performance and remaining gates](docs/predeployment-audit.md).
+
+Privacy/account deletion development: [workflow, security audit and release checklist](docs/privacy-deletion-audit.md) and [unapproved retention proposal](docs/data-retention-proposal.md). The account feature records reviewed deletion requests; permanent self-service erasure and automatic retention deletion are not enabled.

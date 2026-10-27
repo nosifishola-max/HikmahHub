@@ -11,7 +11,7 @@ import { normalizePhone } from '../phone.js';
 import { friendlyError } from '../validate.js';
 
 let tab = 'review', vFilter = 'pending', pFilter = 'pending';
-const TABS = { review: 'Review', overview: 'Overview', vendors: 'Vendors', products: 'Products', deals: 'Deals', events: 'Events', categories: 'Categories', reports: 'Reports', demand: 'Demand', promotions: 'Promotions', branding: 'Branding', storage: 'Storage' };
+const TABS = { review: 'Review', overview: 'Overview', vendors: 'Vendors', products: 'Products', deals: 'Deals', events: 'Events', categories: 'Categories', reports: 'Reports', deletion: 'Deletion requests', demand: 'Demand', promotions: 'Promotions', branding: 'Branding', storage: 'Storage' };
 const run = async (p, ok = 'Done') => { const { error } = await p; toast(error ? error.message : ok); return !error; };
 
 export async function admin(app) {
@@ -26,7 +26,7 @@ export async function admin(app) {
   app.innerHTML = `<div class="wrap pad"><h1>Admin</h1><div class="seg">${Object.entries(TABS).map(([k, l]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div><div id="tab">Loading…</div></div>`;
   $$('.seg button').forEach(b => b.onclick = () => { tab = b.dataset.t; admin(app); });
   if (!stopA) { stopA = [watch('vendors', onAdminChange), watch('products', onAdminChange)]; onLeave(() => { stopA?.forEach(f => f()); stopA = null; }); }
-  const run = () => ({ review, overview, vendors, products, deals, events, categories, reports, demand, promotions, branding, storage })[tab]($('#tab'));
+  const run = () => ({ review, overview, vendors, products, deals, events, categories, reports, deletion, demand, promotions, branding, storage })[tab]($('#tab'));
   await run();
   if (focusId && !document.querySelector(`[data-fid="${focusId}"]`) && (tab === 'vendors' || tab === 'products')) { if (tab === 'vendors') vFilter = 'all'; else pFilter = 'all'; await run(); }   // already reviewed? look in All
   applyFocus();
@@ -160,11 +160,7 @@ async function categories(el) {
   $$('[data-t]', el).forEach(b => b.onclick = async () => { if (await run(sb.from('categories').update({ is_active: b.dataset.v === 'true' }).eq('id', b.dataset.t))) again(); });
 }
 
-async function reports(el) {
-  const { data } = await sb.from('reports').select('*').order('created_at', { ascending: false }).limit(100);
-  el.innerHTML = table(['Report', 'Status', 'Actions'], (data || []).map(r => `<tr><td><b>${esc(r.reason)}</b> on ${r.target_type}<br><span class="small muted">${fmtDate(r.created_at)}</span><br>${esc(r.details || '')}</td><td>${r.status}</td><td><div class="row"><button class="btn sm" data-r="resolved" data-id="${r.id}">Resolve</button><button class="btn sm danger" data-r="resolved" data-h="1" data-id="${r.id}">Resolve and hide</button><button class="btn sm ghost" data-r="dismissed" data-id="${r.id}">Dismiss</button></div></td></tr>`));
-  $$('[data-r]', el).forEach(b => b.onclick = async () => { if (await run(sb.rpc('admin_resolve_report', { p_report: b.dataset.id, p_status: b.dataset.r, p_hide_target: !!b.dataset.h }), 'Report updated')) again(); });
-}
+async function reports(el) { const { moderationQueue } = await import('../moderation-queue.js'); return moderationQueue(el); }
 
 async function demand(el) {
   const { data } = await sb.from('demand_requests').select('id,title,status,budget_max,created_at').order('created_at', { ascending: false }).limit(100);
@@ -273,3 +269,6 @@ async function promotions(el, editId) {
   $$('[data-rm]', el).forEach(b => b.onclick = async () => { if (!confirm('Delete this promotion? This cannot be undone.')) return; const x = data.find(y => y.id === b.dataset.rm);
     if (await run(sb.from('promotions').delete().eq('id', x.id), 'Deleted')) { if (x.image_path && !(await imageStillUsed(x.image_path, x.id))) await sb.storage.from('promo-banners').remove([x.image_path]); promotions(el); } });
 }
+
+
+async function deletion(el){return (await import('../deletion-review.js')).deletionReview(el);}

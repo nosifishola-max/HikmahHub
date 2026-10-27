@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>HikmahHub | Al-Hikmah University Campus Marketplace</title>
-<meta name="description" content="Discover HikmahHub, the campus marketplace for Al-Hikmah University students. Explore student businesses, products, services, and campus opportunities.">
+<meta name="description" content="HikmahHub is Al-Hikmah University’s campus marketplace in Ilorin. Discover products, services, student vendors, requests, events and opportunities.">
 <meta name="theme-color" content="#0f4a2c">
 <link rel="canonical" href="https://hikmahhub.com.ng/">
 <meta name="google-site-verification" content="x2G6KQkOzmUadVho_mNXWU0hlcirymFU5h3SPKPdoXk" />
@@ -34,8 +34,10 @@
 </div></header>
 <div class="wrap" style="padding-top:8px"><a href="/about.html">About HikmahHub</a></div>
 <main id="app" tabindex="-1"><div class="wrap"><p class="muted pad">Loading…</p></div></main>
+
 <nav class="tabs" aria-label="Primary" id="tabnav"></nav>
 <div id="toast" role="status" aria-live="polite"></div>
-<script type="module" src="/js/main.js"></script>
+<script type="module">import('/js/main.js').catch(() => { document.getElementById('app').innerHTML = '<div class="wrap pad"><h1>Could not load HikmahHub</h1><p>Check your connection and try again.</p><button class="btn" onclick="location.reload()">Try again</button></div>'; });</script>
 </body>
 </html>
+
