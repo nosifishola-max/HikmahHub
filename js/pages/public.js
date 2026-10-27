@@ -137,8 +137,9 @@ export async function shop(app, [store]) {
   const wa = state.user ? `<a class="btn wa" id="wa" href="${waLink(s.whatsapp_number, `Hello ${s.store_name}, I found your store on HikmahHub.\n${location.href}`)}" target="_blank" rel="noopener">Chat on WhatsApp</a>` : `<a class="btn" href="/login" data-link>Sign in to contact</a>`;
   app.innerHTML = `<div class="wrap pad"><div class="shop-h"><img src="${img('vendor-logos', s.logo_path)}" alt=""><div><h1>${esc(s.store_name)}</h1>${s.is_verified ? '<span class="badge ok">✓ Verified Student Vendor</span>' : ''}<div class="small muted">${esc(s.campus_location || '')}</div></div></div>
   <p>${esc(s.description || s.short_description || '')}</p><div class="row">${wa}<button id="sh" class="btn ghost">Share store</button></div>
-  ${state.user ? `<div class="sec"><h2>Products</h2>${items.length ? `<div class="grid">${items.map(p => card(p)).join('')}</div>` : '<p class="muted">No active listings yet.</p>'}</div>` : signinCta()}</div>`;
+  ${state.user ? `<div class="sec"><h2>Products</h2>${items.length ? `<div class="grid">${items.map(p => card(p)).join('')}</div>` : '<p class="muted">No active listings yet.</p>'}</div>` : signinCta()}<div class="sec" id="vendor-reviews"></div></div>`;
   $('#sh').onclick = () => openShareSheet({ title: s.store_name, price: null, store: s.store_name, path: '/shop/' + s.slug, imageUrl: null });
+  if (s.id) void import('../vendor-reviews.js').then(({ mountVendorReviews }) => mountVendorReviews($('#vendor-reviews'), s));
   void recordAnalytics(sb, 'record_store_view', { p_vendor: s.id });
   if (state.user) $('#wa')?.addEventListener('click', () => recordAnalytics(sb, 'record_whatsapp_click', { p_vendor: s.id }));
 }
