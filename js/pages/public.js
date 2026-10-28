@@ -49,7 +49,7 @@ export async function marketplace(app, _, qs) {
   app.innerHTML = `<div class="wrap pad"><h1>Marketplace</h1>
     <form id="f" class="row" role="search"><input class="grow" name="q" type="search" value="${esc(f.q)}" placeholder="Search products, services, stores" aria-label="Search">
     <button class="btn">Search</button></form>
-    <div class="row" style="margin:8px 0"><select id="cat" aria-label="Category">${catOpts([])}</select>
+    <div class="market-filters"><select id="cat" aria-label="Category">${catOpts([])}</select>
     <select id="type" aria-label="Type"><option value="">Products and services</option><option value="product" ${f.type === 'product' ? 'selected' : ''}>Products</option><option value="service" ${f.type === 'service' ? 'selected' : ''}>Services</option></select>
     <select id="sort" aria-label="Sort"><option value="mixed" ${f.sort === 'mixed' ? 'selected' : ''}>Recommended</option><option value="newest" ${f.sort === 'newest' ? 'selected' : ''}>Newest</option><option value="oldest" ${f.sort === 'oldest' ? 'selected' : ''}>Oldest</option><option value="price_asc" ${f.sort === 'price_asc' ? 'selected' : ''}>Price: low to high</option><option value="price_desc" ${f.sort === 'price_desc' ? 'selected' : ''}>Price: high to low</option></select></div>
     <div id="newpill" hidden style="position:sticky;top:54px;z-index:5;text-align:center;margin-bottom:6px"><button class="btn sm gold" id="np">New listings available. Tap to refresh</button></div>
