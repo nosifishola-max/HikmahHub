@@ -130,3 +130,13 @@ test('marketplace chips retain query, type and sort while All clears only catego
 test('migration-dependent features default off for a compatible frontend release',async()=>{
  const {releaseFeatures}=await load('js/release.js');assert.ok(Object.values(releaseFeatures).every(v=>v===false));
 });
+
+
+test('image cleanup treats failed reference checks as unknown, never as unused',async()=>{
+ const removed=[];let response={count:null,error:{code:'network'}};
+ const client={from:()=>({select(){return this},eq:async()=>response}),storage:{from:bucket=>({remove:async paths=>removed.push({bucket,paths})})}};
+ const {cleanupFiles}=await load('js/branding.js',{[sbPath]:{sb:client}});
+ await cleanupFiles(['vendor/main.webp'],['vendor/master.webp']);assert.equal(removed.length,0);
+ response={count:1,error:null};await cleanupFiles(['vendor/main.webp'],['vendor/master.webp']);assert.equal(removed.length,0);
+ response={count:0,error:null};await cleanupFiles(['vendor/main.webp'],['vendor/master.webp']);assert.equal(removed.length,2);assert.equal(removed[0].paths[1],'vendor/main_t.webp');
+});

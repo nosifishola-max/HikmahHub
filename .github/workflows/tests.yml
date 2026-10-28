@@ -7,6 +7,7 @@ permissions:
   contents: read
 jobs:
   regression:
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +46,7 @@ jobs:
           pg_restore --exit-on-error --no-owner --dbname=hikmah_restore /tmp/hikmah-local.dump
           PGDATABASE=hikmah_restore psql -v ON_ERROR_STOP=1 -f tests/backup-check.sql -f tests/database-contract.sql -f tests/database-roles.sql -f tests/android-database.sql
   performance:
+    timeout-minutes: 8
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
