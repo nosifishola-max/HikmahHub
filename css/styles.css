@@ -166,3 +166,25 @@ label{margin:9px 0 3px;font-size:.84rem}
 /* ---- v1.8 fixes: .pad must not remove the side padding of .wrap; viewer background fully opaque ---- */
 .pad{padding-top:14px;padding-bottom:14px}
 .vw{background:#000}
+
+
+/* UI-only release: responsive layout and improved campus hero readability. */
+#app .wrap{min-width:0}
+#app h1,#app h2,#app h3,#app p,#app li,#app a{overflow-wrap:break-word}
+@media(max-width:599px){
+  .wrap,.wrap.pad{padding-inline:16px}
+  .grid,.pd,.grid>*,.pd>*{min-width:0}
+  .contact-bar{padding-bottom:12px}
+}
+.hero{
+  background-image:linear-gradient(90deg,rgba(7,49,29,.70) 0%,rgba(9,55,32,.48) 56%,rgba(8,50,28,.26) 100%),url('/assets/hero-campus-720.webp');
+  background-position:center 38%;
+  padding-block:28px 30px;
+}
+.hero h1,.hero p{text-shadow:0 2px 7px rgba(0,0,0,.65)}
+.hero h1{font-size:clamp(1.65rem,5.5vw,2.35rem);line-height:1.17}
+.hero p{color:#fff;line-height:1.55}
+.hero form{max-width:680px}
+@media(min-width:700px){
+  .hero{background-image:linear-gradient(90deg,rgba(7,49,29,.78) 0%,rgba(9,55,32,.43) 58%,rgba(8,50,28,.14) 100%),url('/assets/hero-campus-1280.webp');padding-block:42px 46px}
+}
