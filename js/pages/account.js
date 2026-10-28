@@ -54,6 +54,7 @@ export async function login(app, _, qs) {
         if (mode === 'forgot') {
           const { error } = await sb.auth.resetPasswordForEmail(d.email.trim(), { redirectTo: `${location.origin}/reset-password` });
           if (error && /rate limit|after \d+ seconds|too many/i.test(error.message)) { setMsg('#msg', authErrorMessage(error)); cooldown(b, 60); return; }
+          if (error) { setMsg('#msg', 'Could not request a reset email. Check your connection and try again.'); b.disabled = false; return; }
           // same message whether or not the email exists (no account enumeration)
           setMsg('#msg', "If that email has a HikmahHub account, we've sent a reset link. Check your inbox and Spam folder. The link expires after a while.", 'ok'); cooldown(b, 60); return;
         }

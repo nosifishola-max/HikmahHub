@@ -54,9 +54,12 @@ jobs:
           node-version: 22
       - run: npm install --prefix /tmp/hikmah-tools playwright@1.56.1 --no-audit --no-fund
       - run: node tests/performance.cjs
-      - run: node tests/release-browser.cjs
-      - run: node tests/pwa-browser.cjs
-      - uses: actions/upload-artifact@v4
+      - if: ${{ !cancelled() }}
+        run: node tests/release-browser.cjs
+      - if: ${{ !cancelled() }}
+        run: node tests/pwa-browser.cjs
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
         with:
           name: android-ui-evidence
           path: test-results/
