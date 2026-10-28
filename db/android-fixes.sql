@@ -150,7 +150,7 @@ begin
   select status::text into old_state from public.campus_deals where id=r.target_id for update;
   if old_state is null then raise exception 'Reported deal is no longer available'; end if;
   if p_action not in ('hide_listing','reject_listing','restore') or (p_action='restore' and old_state not in ('hidden','rejected')) then raise exception 'Action not permitted for this deal'; end if;
-  if old_state=case when p_action='hide_listing' then 'hidden' when p_action='reject_listing' then 'rejected' else 'approved' end then raise exception 'Deal already in this state'; end if;
+  if old_state=(case when p_action='hide_listing' then 'hidden' when p_action='reject_listing' then 'rejected' else 'approved' end) then raise exception 'Deal already in this state'; end if;
   update public.campus_deals set status=case when p_action='hide_listing' then 'hidden'::public.moderation_status when p_action='reject_listing' then 'rejected'::public.moderation_status else 'approved'::public.moderation_status end where id=r.target_id;
  elsif r.target_type='event_comment' then
   if p_action not in ('hide_comment','restore') then raise exception 'Action not permitted'; end if;
