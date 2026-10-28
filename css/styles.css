@@ -227,3 +227,9 @@ label{margin:9px 0 3px;font-size:.84rem}
 .event-community #discussion{overflow-wrap:anywhere}
 @media(max-width:599px){.event-page{padding-top:16px}.event-cover{border-radius:14px}.event-content{padding-top:16px}.event-facts{grid-template-columns:1fr}.event-about,.event-community{padding:16px}.event-page h1{font-size:1.65rem}}
 
+
+/* Marketplace dropdown filters: responsive and easy to use on touchscreens. */
+.market-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 16px}
+.market-filters select{display:block;width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:inherit}
+.market-filters select:focus-visible{outline:2px solid var(--green2);outline-offset:2px}
+@media(max-width:599px){.market-filters{grid-template-columns:1fr 1fr;gap:8px}.market-filters #cat{grid-column:1/-1}}
