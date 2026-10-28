@@ -1,4 +1,6 @@
 import { sb } from '../supabase.js';
+import { academics, optionsWithLegacy } from '../academics.js';
+import { normalizeMatric } from '../vendor-identity.js';
 import { state, loadSession, isVendor, refreshProfile } from '../auth.js';
 import { onLeave } from '../router.js';
 import { listingForm, closeListingForm } from './listing-form.js';
@@ -33,19 +35,27 @@ async function apply(app, ex = null) {
   if (ex) { const { data } = await sb.from('vendor_review_events').select('status_to,reason,created_at').eq('vendor_id', ex.id).order('id', { ascending: false }).limit(6); hist = data || []; }
   app.innerHTML = `<div class="wrap pad" style="max-width:600px"><h1>${ex ? 'Update your application' : 'Open your store'}</h1>
   ${ex ? `<div class="notice bad"><b>Your application was not approved.</b><br>Reason: ${esc(ex.rejection_reason || 'No reason was recorded.')}<br><span class="small">Fix the details below and resubmit. It goes back into the review queue.</span></div>` : '<p class="muted">Free for students. HikmahHub reviews every application before your store goes live.</p>'}
-  <form id="f" class="panel" novalidate><label for="sn">Store name</label><input id="sn" name="store_name" required minlength="2" maxlength="80" value="${esc(ex?.store_name)}">
+  <form id="f" class="panel" novalidate><p class="small muted">Your matric number is private and used only to verify your application.</p><label>Matric number<input placeholder="26/01HUI001" name="matric_number" required maxlength="80" value="${esc(state.profile?.matric_number)}"></label><label>Faculty<select name="faculty" required id="faculty"></select></label><label>Department<select name="department" required id="department"></select></label><label for="sn">Store name</label><input id="sn" name="store_name" required minlength="2" maxlength="80" value="${esc(ex?.store_name)}">
   <label for="wa">WhatsApp number</label><input id="wa" name="whatsapp_number" required placeholder="e.g. 08012345678 or +2348012345678" inputmode="tel" autocomplete="tel" value="${esc(ex?.whatsapp_number)}"><div class="small muted">Buyers will contact you on this number. Nigerian numbers can start with 0; other countries start with + and the country code.</div>
   <label for="bc">What do you sell?</label><input id="bc" name="business_category" placeholder="e.g. Phones and accessories" value="${esc(ex?.business_category)}">
   <label for="cl">Campus location</label><input id="cl" name="campus_location" value="${esc(ex?.campus_location)}">
   <label for="ds">About your store</label><textarea id="ds" name="description" maxlength="1000">${esc(ex?.description)}</textarea>
   <p id="err" class="small" style="color:var(--danger)" role="alert"></p><button class="btn" style="margin-top:6px">${ex ? 'Resubmit application' : 'Submit application'}</button></form>
   ${hist.length ? `<details class="rv"><summary>Review history</summary><ul>${hist.map(h => `<li class="small">${fmtDate(h.created_at)}: ${esc(h.status_to)}${h.reason ? ` – ${esc(h.reason)}` : ''}</li>`).join('')}</ul></details>` : ''}</div>`;
+  const options = (values, value) => '<option value="">Select</option>'+optionsWithLegacy(values,value).map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v)}${values.includes(v)?'':' (existing value)'}</option>`).join('');
+  $('#faculty').innerHTML=options(Object.keys(academics),state.profile?.faculty);
+  $('#department').innerHTML=options(academics[state.profile?.faculty]||[],state.profile?.department);
+  $('#faculty').onchange=()=>{const old=$('#department').value;$('#department').innerHTML=options(academics[$('#faculty').value]||[],old);};
   $('#f').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target), err = $('#err'), b = e.submitter; err.textContent = '';
     if ((d.store_name || '').trim().length < 2) { err.textContent = 'Enter your store name (at least 2 characters).'; return; }
     const ph = normalizePhone(d.whatsapp_number); if (!ph.ok) { err.textContent = ph.error; return; }
     const row = { store_name: d.store_name.trim(), whatsapp_number: ph.value, business_category: d.business_category.trim() || null, campus_location: d.campus_location.trim() || null, description: d.description.trim() || null };
+    const identity = { matric_number: normalizeMatric(d.matric_number), faculty: d.faculty.trim(), department: d.department.trim() };
+    if (!identity.matric_number || !identity.faculty || !identity.department) { err.textContent = 'Enter your matric number, faculty and department.'; return; }
     b.disabled = true;
+    const saved = await sb.from('profiles').update(identity).eq('id', state.user.id);
+    if (saved.error) { err.textContent = saved.error.code === '23505' ? 'This matric number cannot be used. Contact HikmahHub if you need help.' : friendlyError(saved.error); b.disabled = false; return; }
     const { error } = ex ? await sb.from('vendors').update({ ...row, status: 'pending' }).eq('id', ex.id) : await sb.from('vendors').insert({ ...row, owner_id: state.user.id });
     if (error) { err.textContent = friendlyError(error); b.disabled = false; return; }
     toast(ex ? 'Application resubmitted' : 'Application submitted'); await loadSession(); vendor(app);
@@ -63,19 +73,24 @@ function dash(app) {
 }
 
 async function listings(el) {
-  if (!el.querySelector('table')) el.innerHTML = '<p class="muted small">Loading your listings…</p>';
+  if (!el.querySelector('.vendor-listings')) el.innerHTML = '<p class="muted small">Loading your listings…</p>';
   const { data, error } = await sb.from('products').select('id,title,price,status,availability,slug,review_note,pending_changes,category_id,product_images(path)').eq('vendor_id', state.vendor.id).order('created_at', { ascending: false });
   if (error) return el.innerHTML = `<p>${esc(friendlyError(error))}</p>`;
   const missing = p => [!p.title && 'title', !p.product_images?.length && 'image', !p.category_id && 'category', p.price == null && 'price'].filter(Boolean);
   const note = p => p.status === 'rejected' && p.review_note ? `<div class="small" style="color:var(--danger)">Not approved: ${esc(p.review_note)}</div>` : p.status === 'hidden' ? `<div class="small" style="color:var(--danger)">Hidden by HikmahHub${p.review_note ? ': ' + esc(p.review_note) : ''}. Contact us.</div>` : p.review_note && p.status === 'approved' ? `<div class="small muted">${esc(p.review_note)}</div>` : '';
-  el.innerHTML = data.length ? `<div class="scroll"><table class="tbl"><tr><th></th><th>Listing</th><th>Status</th><th>Availability</th><th></th></tr>${data.map(p => `<tr><td><img src="${img('product-images', p.product_images?.[0]?.path, true)}" width="44" height="44" style="object-fit:cover;border-radius:8px" alt=""></td><td>${esc(p.title || 'Untitled draft')}<br><span class="price">${p.price == null ? '<span class="muted small">No price yet</span>' : money(p.price)}</span></td>
-  <td><span class="badge ${p.status === 'approved' ? 'ok' : p.status === 'rejected' || p.status === 'hidden' ? 'bad' : ''}">${p.status}</span>${p.pending_changes ? '<br><span class="badge teal">Changes awaiting review</span>' : ''}${p.status === 'draft' && missing(p).length ? `<br><span class="badge">Incomplete draft</span><div class="small muted">Needs: ${missing(p).join(', ')}</div>` : ''}${note(p)}</td>
-  <td><select data-av="${p.id}" aria-label="Availability">${['available', 'out_of_stock', 'sold', 'unavailable'].map(a => `<option ${a === p.availability ? 'selected' : ''} value="${a}">${a.replace('_', ' ')}</option>`).join('')}</select></td>
-  <td><div class="row"><button class="btn sm ghost" data-ed="${p.id}">Edit</button>${p.status === 'draft' && !missing(p).length ? `<button class="btn sm" data-sub="${p.id}">Submit</button>` : ''}<button class="btn sm danger" data-del="${p.id}">Delete</button></div></td></tr>`).join('')}</table></div>` : `<div class="empty"><h3>No listings yet</h3><p class="muted">Add your first product or service.</p><button class="btn" id="add">Add listing</button></div>`;
+  el.innerHTML = data.length ? `<div class="vendor-listings">${data.map(p => `<article class="vendor-listing"><div class="vendor-listing-title"><img src="${img('product-images', p.product_images?.[0]?.path, true)}" width="44" height="44" style="object-fit:cover;border-radius:8px" alt=""></div><div class="vendor-listing-description">${esc(p.title || 'Untitled draft')}<br><span class="price">${p.price == null ? '<span class="muted small">No price yet</span>' : money(p.price)}</span></div>
+  <div class="vendor-listing-status"><span class="badge ${p.status === 'approved' ? 'ok' : p.status === 'rejected' || p.status === 'hidden' ? 'bad' : ''}">${p.status}</span>${p.pending_changes ? '<br><span class="badge teal">Changes awaiting review</span>' : ''}${p.status === 'draft' && missing(p).length ? `<br><span class="badge">Incomplete draft</span><div class="small muted">Needs: ${missing(p).join(', ')}</div>` : ''}${note(p)}</div>
+  <label>Availability<select data-av="${p.id}" aria-label="Availability">${['available', 'out_of_stock', 'sold', 'unavailable'].map(a => `<option ${a === p.availability ? 'selected' : ''} value="${a}">${a.replaceAll('_', ' ')}</option>`).join('')}</select></label>
+  <div class="row listing-actions"><button class="btn sm ghost" data-ed="${p.id}">Edit</button>${p.status === 'draft' && !missing(p).length ? `<button class="btn sm" data-sub="${p.id}">Submit for Review</button>` : ''}<button class="btn sm danger" data-del="${p.id}">Delete</button></div></article>`).join('')}</div>` : `<div class="empty"><h3>No listings yet</h3><p class="muted">Add your first product or service.</p><button class="btn" id="add">Add listing</button></div>`;
   $('#add') && ($('#add').onclick = () => { tab = 'new'; dash($('#app')); });
-  $$('[data-av]').forEach(s => s.onchange = async () => { const { error } = await sb.from('products').update({ availability: s.value }).eq('id', s.dataset.av); toast(error ? friendlyError(error) : 'Updated'); });
+  $$('[data-av]').forEach(s => { let previous = s.value; s.onchange = async () => {
+    s.disabled = true;
+    try { const { error } = await sb.from('products').update({ availability: s.value }).eq('id', s.dataset.av); if (error) throw error; previous = s.value; toast('Updated'); }
+    catch (error) { s.value = previous; toast(friendlyError(error)); }
+    finally { s.disabled = false; }
+  }; });
   $$('[data-sub]').forEach(b => b.onclick = async () => { const { error } = await sb.from('products').update({ status: 'pending' }).eq('id', b.dataset.sub); toast(error ? friendlyError(error) : 'Submitted for review'); listings(el); });
-  $$('[data-del]').forEach(b => b.onclick = async () => { if (!confirm('Delete this listing?')) return; const { data: im } = await sb.from('product_images').select('path,original_path').eq('product_id', b.dataset.del); const { error } = await sb.from('products').delete().eq('id', b.dataset.del); if (!error) await cleanupFiles((im || []).map(x => x.path), (im || []).map(x => x.original_path)); toast(error ? friendlyError(error) : 'Deleted'); listings(el); });
+  $$('[data-del]').forEach(b => b.onclick = async () => { const product = data.find(p => p.id === b.dataset.del); if (!confirm(`Delete “${product?.title || 'Untitled draft'}”? Its listing and images will be removed.`)) return; b.disabled = true; const { data: im } = await sb.from('product_images').select('path,original_path').eq('product_id', b.dataset.del); const { error } = await sb.from('products').delete().eq('id', b.dataset.del); if (!error) await cleanupFiles((im || []).map(x => x.path), (im || []).map(x => x.original_path)); toast(error ? friendlyError(error) : 'Deleted'); listings(el); });
   $$('[data-ed]').forEach(b => b.onclick = () => form($('#tab'), b.dataset.ed));
 }
 
@@ -124,3 +139,4 @@ async function wins(el) {
     $$('[data-i]', el).forEach(b => b.onclick = async () => { try { await shareAchievement(out[b.dataset.i], state.vendor, b.dataset.m); } catch (e) { toast(e.message); } });
   } catch (e) { el.innerHTML = `<p>${esc(e.message)}</p>`; }
 }
+

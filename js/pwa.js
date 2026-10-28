@@ -29,5 +29,39 @@ export function initPwa() {
     try { ev.prompt(); const { outcome } = await ev.userChoice; if (outcome === 'accepted') btn.hidden = true; else toast('You can install later from this button'); }
     catch { help(); }
   });
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  initUpdates();
 }
+
+export function initUpdates() {
+  if (!('serviceWorker' in navigator)) return;
+  let accepted = false, reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (accepted && !reloading) { reloading = true; location.reload(); }
+  });
+  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(reg => {
+    const offer = () => {
+      if (!reg.waiting || !navigator.serviceWorker.controller || document.getElementById('pwa-update')) return;
+      const notice = document.createElement('aside'); notice.id = 'pwa-update'; notice.className = 'pwa-update';
+      notice.setAttribute('aria-label', 'App update');
+      notice.innerHTML = '<p>A HikmahHub update is ready. Save any unfinished forms before updating.</p><div class="row"><button class="btn" data-update>Update and reload</button><button class="btn ghost" data-later>Later</button></div>';
+      notice.querySelector('[data-update]').onclick = () => {
+        if (!reg.waiting) { notice.remove(); return; }
+        accepted = true; notice.querySelector('[data-update]').disabled = true;
+        reg.waiting.postMessage({ type: 'APPLY_UPDATE' });
+      };
+      notice.querySelector('[data-later]').onclick = () => notice.remove();
+      document.body.appendChild(notice);
+    };
+    offer();
+    reg.addEventListener('updatefound', () => reg.installing?.addEventListener('statechange', offer));
+    let lastCheck = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        offer();
+        if (Date.now() - lastCheck > 300000) { lastCheck = Date.now(); reg.update().catch(() => {}); }
+      }
+    });
+    addEventListener('pageshow', offer);
+  }).catch(() => {});
+}
+

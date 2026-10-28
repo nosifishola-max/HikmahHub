@@ -10,10 +10,11 @@ export async function render() {
   for (const r of routes) { const m = url.pathname.match(r.re); if (m) { window.scrollTo(0, 0); await r.handler(app, m.slice(1).map(decodeURIComponent), url.searchParams); if (my === token) mark(); return; } }
   window.scrollTo(0, 0); app.innerHTML = notFound(); mark();
 }
-function mark() { document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === '/' ? location.pathname === '/' : location.pathname.startsWith(a.dataset.nav))); document.getElementById('app').focus({ preventScroll: true }); }
+function mark() { document.querySelectorAll('[data-nav]').forEach(a => { const active = a.dataset.nav === '/' ? location.pathname === '/' : location.pathname.startsWith(a.dataset.nav); a.classList.toggle('on', active); if (active) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); document.getElementById('app').focus({ preventScroll: true }); }
 document.addEventListener('click', e => { const a = e.target.closest('a[data-link]'); if (a && !e.metaKey && !e.ctrlKey && a.target !== '_blank') { e.preventDefault(); go(a.getAttribute('href')); } });
 addEventListener('popstate', () => {
   if (window.__hhSkipPop) { window.__hhSkipPop = false; return; }                                 // we closed the image viewer ourselves: do not re-render
   if (window.__hhViewer) { const close = window.__hhViewer; window.__hhViewer = null; close(); return; }   // Back button while the viewer is open: just close it
   render();
 });
+
