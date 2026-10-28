@@ -96,5 +96,13 @@ jobs:
         with:
           node-version: 24
       - run: bash tests/start-auth-http.sh
+      - run: npm install --prefix /tmp/hikmah-tools playwright@1.56.1 --no-audit --no-fund
+      - run: curl --fail --retry 2 --max-time 30 https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js -o /tmp/hikmah-sdk.js
+      - run: node tests/connected-browser.cjs
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: connected-auth-ui-evidence
+          path: test-results/
       - if: failure()
         run: docker logs hikmah-auth; docker logs hikmah-rest || true

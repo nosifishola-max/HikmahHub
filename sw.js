@@ -24,7 +24,7 @@ self.addEventListener('fetch', event => {
   const request = event.request, url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/offline.html')));
+    event.respondWith(fetch(request, { cache: 'no-store' }).catch(() => caches.match('/offline.html')));
     return;
   }
   if (!STATIC.test(url.pathname)) return;

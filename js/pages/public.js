@@ -142,18 +142,22 @@ export async function product(app, [store, slug]) {
 }
 
 export async function shop(app, [store]) {
-  let s, items = [];
+  const token=current(); let s, items = [], offset=0, more=true, loading=false;
+  const mapRows=rows=>rows.map(p=>({...p,store_name:s.store_name,store_slug:s.slug,is_verified:s.is_verified,image_path:[...(p.product_images||[])].sort((a,b)=>a.sort_order-b.sort_order)[0]?.path}));
+  const fetchPage=()=>q(sb.from('products').select('id,title,slug,price,availability,product_images(path,sort_order)').eq('vendor_id',s.id).eq('status','approved').order('created_at',{ascending:false}).order('id').range(offset,offset+11));
   if (state.user) {
     const { data } = await sb.from('vendors').select('*').eq('slug', store).eq('status', 'approved').maybeSingle(); s = data;
-    if (s) { const r = await q(sb.rpc('search_products', { p_q: s.store_name, p_limit: 60 })); items = (r || []).filter(x => x.store_slug === s.slug); }
+    if (s) { try { const rows=await fetchPage();items=mapRows(rows);offset=rows.length;more=rows.length===12; } catch { if(token===current()) app.innerHTML='<div class="wrap pad"><p role="alert">Could not load this store. Check your connection and retry.</p></div>';return; } }
   } else { const { data } = await sb.rpc('get_shared_store', { p_store_slug: store }); s = data?.[0]; }
+  if(token!==current())return;
   if (!s) { app.innerHTML = `<div class="wrap pad"><div class="empty"><h3>Store not found</h3><a class="btn" href="/marketplace" data-link>Browse marketplace</a></div></div>`; return; }
   setMeta(s.store_name, s.description || s.short_description || 'Student store on HikmahHub', s.logo_path ? img('vendor-logos', s.logo_path) : undefined);
   const wa = state.user ? `<a class="btn wa" id="wa" href="${waLink(s.whatsapp_number, `Hello ${s.store_name}, I found your store on HikmahHub.\n${location.href}`)}" target="_blank" rel="noopener">Chat on WhatsApp</a>` : `<a class="btn" href="/login" data-link>Sign in to contact</a>`;
   app.innerHTML = `<div class="wrap pad"><div class="shop-h"><img src="${img('vendor-logos', s.logo_path)}" alt=""><div><h1>${esc(s.store_name)}</h1>${s.is_verified ? '<span class="badge ok">✓ Verified Student Vendor</span>' : ''}<div class="small muted">${esc(s.campus_location || '')}</div></div></div>
   <p>${esc(s.description || s.short_description || '')}</p><div class="row">${wa}<button id="sh" class="btn ghost">Share store</button></div>
-  ${state.user ? `<div class="sec"><h2>Products</h2>${items.length ? `<div class="grid">${items.map(p => card(p)).join('')}</div>` : '<p class="muted">No active listings yet.</p>'}</div>` : signinCta()}<div class="sec" id="vendor-reviews"></div></div>`;
+  ${state.user ? `<div class="sec"><h2>Products</h2>${items.length ? `<div class="grid" id="store-grid">${items.map(p => card(p)).join('')}</div><button class="btn ghost" id="store-more" ${more?'':'hidden'}>Load More</button>` : '<p class="muted">No active listings yet.</p>'}</div>` : signinCta()}<div class="sec" id="vendor-reviews"></div></div>`;
   $('#sh').onclick = () => openShareSheet({ title: s.store_name, price: null, store: s.store_name, path: '/shop/' + s.slug, imageUrl: null });
+  const button=$('#store-more');if(button)button.onclick=async()=>{if(loading)return;loading=true;button.disabled=true;button.textContent='Loading…';try{const rows=await fetchPage();if(token!==current())return;const seen=new Set(items.map(x=>x.id));const add=mapRows(rows).filter(x=>!seen.has(x.id));items.push(...add);$('#store-grid').insertAdjacentHTML('beforeend',add.map(p=>card(p)).join(''));offset+=rows.length;button.hidden=rows.length<12;}catch{toast('Could not load more listings. Try again.');}finally{loading=false;if(token===current()){button.disabled=false;button.textContent='Load More';}}};
   if (releaseFeatures.vendorReviews && s.id) void import('../vendor-reviews.js').then(({ mountVendorReviews }) => mountVendorReviews($('#vendor-reviews'), s));
   void recordAnalytics(sb, 'record_store_view', { p_vendor: s.id });
   if (state.user) $('#wa')?.addEventListener('click', () => recordAnalytics(sb, 'record_whatsapp_click', { p_vendor: s.id }));
@@ -162,23 +166,24 @@ export async function shop(app, [store]) {
 export async function deals(app) {
   setMeta('Campus deals', 'Limited-time offers from verified student vendors.');
   if (!state.user) { app.innerHTML = `<div class="wrap pad"><h1>Campus deals</h1>${signinCta()}</div>`; return; }
-  const t = current(); app.innerHTML = `<div class="wrap pad"><h1>Campus deals</h1><div id="r">${skeleton(4)}</div></div>`;
+  const t = current(); let offset=0,loading=false,rows=[]; app.innerHTML = `<div class="wrap pad"><h1>Campus deals</h1><div id="r">${skeleton(4)}</div><button id="deal-more" class="btn ghost" hidden>Load More</button></div>`;
   const draw = data => {
-    const items = data.filter(d => new Date(d.ends_at) > Date.now()).map(d => ({ slug: d.products.slug, store_slug: d.vendors.slug, title: d.products.title, price: d.deal_price, was: d.original_price, store_name: d.vendors.store_name, is_verified: d.vendors.is_verified, image_path: d.products.product_images?.sort((a, b) => a.sort_order - b.sort_order)[0]?.path, ends: d.ends_at }));   // expired deals drop out even from cached data
+    const items = data.filter(d => d.products && d.vendors && new Date(d.ends_at) > Date.now()).map(d => ({ availability:d.products.availability, slug: d.products.slug, store_slug: d.vendors.slug, title: d.products.title, price: d.deal_price, was: d.original_price, store_name: d.vendors.store_name, is_verified: d.vendors.is_verified, image_path: d.products.product_images?.sort((a, b) => a.sort_order - b.sort_order)[0]?.path, ends: d.ends_at }));   // expired deals drop out even from cached data
     $('#r').innerHTML = items.length ? `<div class="grid">${items.map(x => card(x, `<div class="cx"><div class="small muted">Ends ${fmtDate(x.ends)}</div><button class="btn sm ghost" data-share="/shop/${esc(x.store_slug)}/${esc(x.slug)}" data-t="${esc(x.title)}">Share deal</button></div>`)).join('')}</div>` : `<div class="empty"><h3>No live deals right now</h3><p class="muted">Check back soon, new offers are added by student vendors.</p></div>`;
     $$('[data-share]').forEach(b => b.onclick = () => share(b.dataset.t, b.dataset.share));
   };
-  const load = async () => { try { const data = await cached(`deals:${scope()}`, 60000, () => q(sb.from('campus_deals').select('id,deal_price,original_price,ends_at,products(title,slug,product_images(path,sort_order)),vendors(store_name,slug,is_verified)').eq('status', 'approved').gt('ends_at', new Date().toISOString()).order('ends_at').limit(40))); if (t === current()) draw(data); } catch (e) { if (t === current() && !$('#r .grid')) $('#r').innerHTML = errBox(e); } };
-  await load(); onLeave(watch('campus_deals', () => { invalidate('deals:'); load(); })); onLeave(onResume(load));
+  const load=async(reset=false)=>{if(loading)return;loading=true;const button=$('#deal-more');button.disabled=true;button.textContent='Loading…';try{const start=reset?0:offset;const data=await q(sb.from('campus_deals').select('id,deal_price,original_price,ends_at,products(title,slug,availability,product_images(path,sort_order)),vendors(store_name,slug,is_verified)').eq('status','approved').gt('ends_at',new Date().toISOString()).order('ends_at').order('id').range(start,start+15));if(t!==current())return;if(reset)rows=[];const seen=new Set(rows.map(d=>d.id));rows.push(...data.filter(d=>!seen.has(d.id)));offset=start+data.length;draw(rows);button.hidden=data.length<16;}catch{if(t===current()){if(!rows.length)$('#r').innerHTML=errBox({message:'Could not load deals. Check your connection and retry.'});else toast('Could not load more deals. Try again.');}}finally{loading=false;if(t===current()){button.disabled=false;button.textContent='Load More';}}};
+  $('#deal-more').onclick=()=>load();await load(true);onLeave(watch('campus_deals',()=>load(true)));onLeave(onResume(()=>load(true)));
 }
 
 export async function events(app) {
   setMeta('Campus events', 'Seminars, competitions, trainings and more around Al-Hikmah University.');
   if (!state.user) { app.innerHTML = `<div class="wrap pad"><h1>Campus events</h1>${signinCta()}</div>`; return; }
-  const t = current(); app.innerHTML = `<div class="wrap pad"><h1>Campus events</h1><div id="r">${skeleton(4)}</div></div>`;
-  const draw = data => { $('#r').innerHTML = data.length ? `<div class="grid">${data.map(e => `<a class="card" href="/events/${esc(e.slug)}" data-link><img class="ph" loading="lazy" decoding="async" src="${img('event-images', e.image_path, true)}" alt=""><div class="b"><div class="t">${esc(e.title)}</div><div class="small muted">${fmtDate(e.starts_at)}</div><div class="small muted">${esc(e.location || '')}</div></div></a>`).join('')}</div>` : `<div class="empty"><h3>No upcoming events</h3><p class="muted">Events published by HikmahHub will show up here.</p></div>`; };
-  const load = async () => { try { const data = await cached(`events:${scope()}`, 60000, () => q(sb.from('events').select('id,title,slug,starts_at,location,image_path').eq('status', 'published').gte('starts_at', new Date(Date.now() - 864e5).toISOString()).order('starts_at').limit(40))); if (t === current()) draw(data); } catch (e) { if (t === current() && !$('#r .grid')) $('#r').innerHTML = errBox(e); } };
-  await load(); onLeave(watch('events', () => { invalidate('events:'); load(); })); onLeave(onResume(load));
+  const t=current();let offset=0,loading=false,rows=[];
+  app.innerHTML=`<div class="wrap pad"><h1>Campus events</h1><div id="r">${skeleton(4)}</div><button id="event-more" class="btn ghost" hidden>Load More</button></div>`;
+  const draw=()=>$('#r').innerHTML=rows.length?`<div class="grid">${rows.map(e=>`<a class="card" href="/events/${esc(e.slug)}" data-link><img class="ph" loading="lazy" decoding="async" src="${img('event-images',e.image_path,true)}" alt=""><div class="b"><div class="t">${esc(e.title)}</div><div class="small muted">${fmtDate(e.starts_at)}</div><div class="small muted">${esc(e.location||'')}</div></div></a>`).join('')}</div>`:'<div class="empty"><h3>No upcoming events</h3><p class="muted">Events published by HikmahHub will show up here.</p></div>';
+  const load=async(reset=false)=>{if(loading)return;loading=true;const button=$('#event-more');button.disabled=true;button.textContent='Loading…';try{const start=reset?0:offset;const data=await q(sb.from('events').select('id,title,slug,starts_at,location,image_path').eq('status','published').gte('starts_at',new Date(Date.now()-864e5).toISOString()).order('starts_at').order('id').range(start,start+15));if(t!==current())return;if(reset)rows=[];const seen=new Set(rows.map(e=>e.id));rows.push(...data.filter(e=>!seen.has(e.id)));offset=start+data.length;draw();button.hidden=data.length<16;}catch(e){if(t===current()){if(!rows.length)$('#r').innerHTML=errBox({message:'Could not load events. Check your connection and retry.'});else toast('Could not load more events. Try again.');}}finally{loading=false;if(t===current()){button.disabled=false;button.textContent='Load More';}}};
+  $('#event-more').onclick=()=>load();await load(true);onLeave(watch('events',()=>load(true)));onLeave(onResume(()=>load(true)));
 }
 
 export async function eventPage(app, [slug]) {

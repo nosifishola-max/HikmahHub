@@ -1,6 +1,6 @@
 import { sb } from './supabase.js';
 import { esc, toast, fmtDate } from './util.js';
-const actions = type => type === 'deal' ? ['dismiss'] : type === 'product' ? ['dismiss','request_changes','reject_listing','hide_listing','suspend_vendor','restore'] : type === 'store' ? ['dismiss','suspend_vendor','reject_vendor','restore'] : type === 'event_comment' ? ['dismiss','hide_comment','restore'] : ['dismiss','hide_listing','restore'];
+const actions = type => type === 'deal' ? ['dismiss','reject_listing','hide_listing','restore'] : type === 'product' ? ['dismiss','request_changes','reject_listing','hide_listing','suspend_vendor','restore'] : type === 'store' ? ['dismiss','suspend_vendor','reject_vendor','restore'] : type === 'event_comment' ? ['dismiss','hide_comment','restore'] : ['dismiss','hide_listing','restore'];
 export async function moderationQueue(el) {
  const [reports, templates] = await Promise.all([sb.rpc('admin_report_queue',{p_limit:50}),sb.from('moderation_templates').select('action,message')]);
  if (reports.error || templates.error) { el.innerHTML='<p role="alert">The moderation queue could not load. Check your connection and whether the review migration is available.</p>';return; }

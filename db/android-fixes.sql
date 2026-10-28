@@ -83,6 +83,7 @@ declare snapshot jsonb;
 begin
  if p_type='product' then select jsonb_build_object('title',p.title,'vendor',v.store_name,'path','/shop/'||v.slug||'/'||p.slug) into snapshot from public.products p join public.vendors v on v.id=p.vendor_id where p.id=p_target;
  elsif p_type='store' then select jsonb_build_object('title',v.store_name,'vendor',v.store_name,'path','/shop/'||v.slug) into snapshot from public.vendors v where v.id=p_target;
+ elsif p_type='deal' then select jsonb_build_object('title',p.title,'vendor',v.store_name,'path','/shop/'||v.slug||'/'||p.slug) into snapshot from public.campus_deals d join public.products p on p.id=d.product_id join public.vendors v on v.id=d.vendor_id where d.id=p_target;
  elsif p_type='event' then select jsonb_build_object('title',e.title,'path','/events/'||e.slug) into snapshot from public.events e where e.id=p_target;
  elsif p_type='event_comment' then select jsonb_build_object('title',c.body,'first_name',c.first_name,'path','/events/'||e.slug||'#comment-'||c.id) into snapshot from public.event_comments c join public.events e on e.id=c.event_id where c.id=p_target;
  end if;
@@ -145,6 +146,12 @@ begin
   elsif p_action='reject_vendor' then perform public.admin_set_vendor_status(r.target_id,'rejected',p_reason);
   elsif p_action='restore' and old_state='suspended' then perform public.admin_set_vendor_status(r.target_id,'approved',p_reason);
   else raise exception 'Action not permitted for this vendor'; end if;
+ elsif r.target_type='deal' then
+  select status::text into old_state from public.campus_deals where id=r.target_id for update;
+  if old_state is null then raise exception 'Reported deal is no longer available'; end if;
+  if p_action not in ('hide_listing','reject_listing','restore') or (p_action='restore' and old_state not in ('hidden','rejected')) then raise exception 'Action not permitted for this deal'; end if;
+  if old_state=case when p_action='hide_listing' then 'hidden' when p_action='reject_listing' then 'rejected' else 'approved' end then raise exception 'Deal already in this state'; end if;
+  update public.campus_deals set status=case when p_action='hide_listing' then 'hidden'::public.moderation_status when p_action='reject_listing' then 'rejected'::public.moderation_status else 'approved'::public.moderation_status end where id=r.target_id;
  elsif r.target_type='event_comment' then
   if p_action not in ('hide_comment','restore') then raise exception 'Action not permitted'; end if;
   update public.event_comments set hidden=(p_action='hide_comment') where id=r.target_id and hidden is distinct from (p_action='hide_comment');

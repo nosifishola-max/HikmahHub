@@ -8,7 +8,7 @@ async function serve(root, port) {
 }
 (async()=>{
  fs.mkdirSync('/tmp/hikmah-baseline',{recursive:true});
- execFileSync('sh',['-c','git archive 87d6863d1925c2b23a6d58f11eeb859844101525 | tar -x -C /tmp/hikmah-baseline']);
+ execFileSync('sh',['-c','git archive 911daab43801849b1ed1c8e41706f5364910a2dc | tar -x -C /tmp/hikmah-baseline']);
  const before=await serve('/tmp/hikmah-baseline',5268), after=await serve(process.cwd(),5269);
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM || '/usr/bin/google-chrome',args:['--no-sandbox']});
  try {
