@@ -15,6 +15,7 @@ jobs:
           node-version: 22
       - run: npm test
       - run: find js api -name '*.js' -exec node --check '{}' \;
+      - run: npm install --prefix /tmp/hikmah-tools playwright@1.56.1 --no-audit --no-fund
       - run: node tests/browser-smoke.cjs
         env:
           CHROMIUM: google-chrome
