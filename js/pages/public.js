@@ -168,7 +168,22 @@ export async function eventPage(app, [slug]) {
   else e = (await sb.rpc('get_shared_event', { p_slug: slug })).data?.[0];
   if (!e) { app.innerHTML = `<div class="wrap pad"><div class="empty"><h3>Event not found</h3><a class="btn" href="/events" data-link>All events</a></div></div>`; return; }
   setMeta(e.title, e.description || e.short_description || '', e.image_path ? img('event-images', e.image_path) : undefined);
-  app.innerHTML = `<div class="wrap pad"><img src="${img('event-images', e.image_path)}" alt="" style="max-height:320px;width:100%;object-fit:cover;border-radius:12px"><h1 style="margin-top:12px">${esc(e.title)}</h1><p><b>${fmtDate(e.starts_at)}</b><br>${esc(e.location || '')}${e.organizer ? `<br>Organizer: ${esc(e.organizer)}` : ''}</p><p style="white-space:pre-wrap">${esc(e.description || e.short_description || '')}</p>${e.contact ? `<p class="muted">Contact: ${esc(e.contact)}</p>` : ''}<button id="sh" class="btn ghost">Share event</button>${state.user ? '' : signinCta()}</div>`;
+  app.innerHTML = `<article class="wrap pad event-page">
+    <div class="event-cover">${e.image_path ? `<img src="${img('event-images', e.image_path)}" alt="${esc(e.title)}" loading="eager">` : '<div class="event-cover-empty" aria-hidden="true"></div>'}</div>
+    <div class="event-content">
+      <div class="event-kicker">HikmahHub · Campus event</div>
+      <h1>${esc(e.title)}</h1>
+      <div class="event-facts">
+        <div class="event-fact"><span class="event-fact-icon" aria-hidden="true">▦</span><div><strong>Date & time</strong><span>${fmtDate(e.starts_at)}</span></div></div>
+        ${e.location ? `<div class="event-fact"><span class="event-fact-icon" aria-hidden="true">⌖</span><div><strong>Venue</strong><span>${esc(e.location)}</span></div></div>` : ''}
+        ${e.organizer ? `<div class="event-fact"><span class="event-fact-icon" aria-hidden="true">♧</span><div><strong>Organizer</strong><span>${esc(e.organizer)}</span></div></div>` : ''}
+      </div>
+      <section class="event-about"><h2>About this event</h2><div class="event-description">${esc(e.description || e.short_description || 'Details will be shared soon.')}</div></section>
+      ${e.contact ? `<div class="event-contact"><strong>Event contact</strong><span>${esc(e.contact)}</span></div>` : ''}
+      <div class="event-actions"><button id="sh" class="btn ghost" type="button">Share event</button><a class="btn ghost" href="/events" data-link>All events</a></div>
+      ${state.user ? '' : signinCta()}
+    </div>
+  </article>`;
   $('#sh').onclick = () => share(e.title, '/events/' + slug);
 }
 
