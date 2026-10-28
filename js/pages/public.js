@@ -31,9 +31,9 @@ export async function home(app) {
   app.innerHTML = `<div class="wrap"><div id="promos"></div></div><section class="hero"><div class="wrap"><h1>Discover what's being sold, wanted and happening on campus</h1>
     <p>Browse student vendors, compare prices, then chat the seller on WhatsApp.</p>
     <form action="/marketplace" role="search"><input name="q" type="search" placeholder="Search phones, food, services…" aria-label="Search"><button class="btn gold">Search</button></form></div></section>
-    <div class="wrap"><div class="sec"><div class="chips" id="cats"></div></div><div id="feed">${skeleton(4)}</div></div>`;
+    <div class="wrap"><div class="sec"><div class="chips" id="cats"><a href="/marketplace" data-link>All</a></div></div><div id="feed">${skeleton(4)}</div></div>`;
   mountPromos($('#promos'));
-  getCats().then(cats => { if (t === current() && $('#cats')) $('#cats').innerHTML = cats.map(c => `<a href="/marketplace?cat=${c.id}" data-link>${esc(c.name)}</a>`).join(''); }).catch(() => { });   // never blocks the feed
+  getCats().then(cats => { if (t === current() && $('#cats')) $('#cats').innerHTML = '<a href="/marketplace" data-link>All</a>' + cats.map(c => `<a href="/marketplace?cat=${c.id}" data-link>${esc(c.name)}</a>`).join(''); }).catch(() => { });   // never blocks the feed
   const load = () => state.user
     ? Promise.all([cached(`home:tr:${sc}`, 120000, () => q(sb.rpc('get_trending_products', { p_days: 7, p_limit: 4 }))), cached(`home:latest:${sc}:${getSeed()}`, 60000, () => q(sb.rpc('search_products', { p_limit: 8, p_sort: 'mixed', p_seed: getSeed() }))), cached(`home:tv:${sc}`, 120000, () => q(sb.rpc('get_top_vendors', { p_days: 7, p_limit: 3 })))])   // one parallel round
     : cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*')));
@@ -49,13 +49,14 @@ export async function marketplace(app, _, qs) {
   app.innerHTML = `<div class="wrap pad"><h1>Marketplace</h1>
     <form id="f" class="row" role="search"><input class="grow" name="q" type="search" value="${esc(f.q)}" placeholder="Search products, services, stores" aria-label="Search">
     <button class="btn">Search</button></form>
-    <div class="market-filters"><select id="cat" aria-label="Category">${catOpts([])}</select>
+    <div class="chips market-cat-chips" id="marketCats"></div><div class="market-filters"><select id="cat" aria-label="Category" hidden>${catOpts([])}</select>
     <select id="type" aria-label="Type"><option value="">Products and services</option><option value="product" ${f.type === 'product' ? 'selected' : ''}>Products</option><option value="service" ${f.type === 'service' ? 'selected' : ''}>Services</option></select>
     <select id="sort" aria-label="Sort"><option value="mixed" ${f.sort === 'mixed' ? 'selected' : ''}>Recommended</option><option value="newest" ${f.sort === 'newest' ? 'selected' : ''}>Newest</option><option value="oldest" ${f.sort === 'oldest' ? 'selected' : ''}>Oldest</option><option value="price_asc" ${f.sort === 'price_asc' ? 'selected' : ''}>Price: low to high</option><option value="price_desc" ${f.sort === 'price_desc' ? 'selected' : ''}>Price: high to low</option></select></div>
-    <div id="newpill" hidden style="position:sticky;top:54px;z-index:5;text-align:center;margin-bottom:6px"><button class="btn sm gold" id="np">New listings available. Tap to refresh</button></div>
+    <div class="market-results-meta"><span id="resultCount" aria-live="polite">Browse campus listings</span><button type="button" class="btn ghost sm" id="clearFilters">Clear filters</button></div><div id="newpill" hidden style="position:sticky;top:54px;z-index:5;text-align:center;margin-bottom:6px"><button class="btn sm gold" id="np">New listings available. Tap to refresh</button></div>
     <div id="res">${skeleton(8)}</div><div class="row" style="justify-content:center;margin-top:10px"><button id="more" class="btn ghost" hidden>Load more</button></div></div>`;
-  getCats().then(c => { if (t === current() && $('#cat')) $('#cat').innerHTML = catOpts(c); }).catch(() => { });   // the list renders without waiting for categories
+  getCats().then(c => { if (t === current() && $('#cat')) { $('#cat').innerHTML = catOpts(c); $('#marketCats').innerHTML = '<a href="/marketplace" data-link>All</a>' + c.map(x => '<a href="/marketplace?cat=' + encodeURIComponent(x.id) + '" data-link>' + esc(x.name) + '</a>').join(''); } }).catch(() => { });   // the list renders without waiting for categories
   const apply = () => go(`/marketplace?${new URLSearchParams({ q: $('#f [name=q]').value.trim(), cat: $('#cat').value, type: $('#type').value, sort: $('#sort').value })}`);
+  $('#clearFilters').onclick = () => go('/marketplace');
   $('#f').onsubmit = e => { e.preventDefault(); apply(); }; ['cat', 'type', 'sort'].forEach(i => $('#' + i).onchange = apply);
   if (!state.user) { try { const data = await cached('home:prev', 120000, () => q(sb.from('public_product_previews').select('*'))); if (t === current()) $('#res').innerHTML = signinCta() + (data?.length ? `<div class="grid">${data.map(x => card(x)).join('')}</div>` : ''); } catch (e) { if (t === current()) $('#res').innerHTML = errBox(e); } return; }
   let off = 0; const size = 24, seen = new Set();
@@ -67,6 +68,7 @@ export async function marketplace(app, _, qs) {
       if (first) { seen.clear(); $('#res').innerHTML = data.length ? '<div class="grid" id="g"></div>' : emptyReq(f.q); $('#newpill').hidden = true; }
       const add = data.filter(x => !seen.has(x.id)); add.forEach(x => seen.add(x.id));            // never show the same product twice
       if (add.length) $('#g').insertAdjacentHTML('beforeend', add.map(x => card(x)).join(''));
+      $('#resultCount').textContent = `${seen.size}${data.length === size ? '+' : ''} listings`;
       $('#more').hidden = data.length < size; off += size;
     } catch (e) { if (t === current() && first) $('#res').innerHTML = errBox(e); else toast('Could not load more. Check your connection.'); }
   };
