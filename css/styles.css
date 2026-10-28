@@ -270,3 +270,14 @@ button,a.btn,select,summary{min-height:44px}
 @media(min-width:800px){.profile-form button{bottom:12px}}
 .pc-track{overflow-y:hidden}
 
+
+/* v1.1 marketplace chip navigation and filter presentation */
+.chips{display:flex;gap:10px;overflow-x:auto;white-space:nowrap;scroll-snap-type:x proximity;padding:5px 0 12px;scrollbar-width:thin}
+.chips a{flex:none;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 16px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:100px;text-decoration:none;scroll-snap-align:start}
+.chips a:hover,.chips a:focus-visible{border-color:var(--green)}
+.market-cat-chips{margin-top:10px}
+.market-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:6px 0 12px}
+.market-filters #cat[hidden]{display:none}
+.market-results-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 14px;color:var(--muted)}
+.market-results-meta .btn{flex:none}
+@media(max-width:599px){.market-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.market-results-meta{font-size:.9rem}}
