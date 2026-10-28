@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/css/styles.css"><title>Offline v1.1 UI smoke</title><body><main id="app" class="wrap pad"></main><nav class="tabs" id="tabnav"></nav><nav id="desknav"></nav><pre id="result">RUNNING</pre>
+<script>
+// Offline fixture: importing production UI code cannot reach the database.
+const artwork = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><rect width="1200" height="600" fill="#e1eac8"/><text x="120" y="320" font-size="70">Campus promotion</text></svg>');
+window.supabase = { createClient: () => ({ storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: artwork } }) }) } }) };
+</script><script type="module">
+try {
+ const {releaseFeatures} = await import('/js/release.js'); releaseFeatures.privacyRequests=true;
+ const { card } = await import('/js/pages/public.js');
+ const { buildCarousel } = await import('/js/pages/promos.js');
+ const { refreshNav } = await import('/js/nav.js');
+ document.querySelector('#app').innerHTML = `<h1>Campus marketplace</h1><div id="promo"></div><div class="market-filters"><select aria-label="Category"><option>All categories</option></select><select aria-label="Type"><option>Products and services</option></select><select aria-label="Sort"><option>Recommended</option></select></div><div class="grid">${[{title:'Student essentials',store_name:'Campus store',price:1500,slug:'item',store_slug:'store',image_path:'fixture',availability:'out_of_stock'}].map(card).join('')}</div><div class="contact-bar"><button class="btn wa grow">Chat seller on WhatsApp</button><button class="btn ghost">Share</button></div>`;
+ buildCarousel(document.querySelector('#promo'), [{ title:'Campus promotion',image_path:'fixture',description:'Full artwork stays visible.' },{ title:'A different promotion',description:'A different length of promotion text to verify the active slide controls track height.' }], { auto:false });
+ refreshNav();
+ const assert = (ok,msg) => { if (!ok) throw Error(msg); };
+ assert(document.querySelectorAll('#tabnav a').length === 6,'Six navigation items');
+ assert(getComputedStyle(document.querySelector('.pc-slide img')).objectFit === 'contain','Uncropped artwork');
+ assert(document.querySelector('.card').textContent.includes('out of stock'),'Readable availability');
+ assert(!document.querySelector('.card').innerHTML.includes('</a>0'),'No map index');
+ assert(getComputedStyle(document.querySelector('.contact-bar')).position === 'sticky','Sticky contact');
+ const cols = getComputedStyle(document.querySelector('.tabs')).gridTemplateColumns.split(' ');
+ assert(innerWidth >= 800 ? getComputedStyle(document.querySelector('.tabs')).display === 'none' : cols.length === 6,'Responsive navigation columns');
+ assert(document.documentElement.scrollWidth <= innerWidth,'No horizontal overflow');
+ const { state } = await import('/js/auth.js');
+ state.user = {id:'00000000-0000-0000-0000-000000000001',email:'student@example.invalid'};
+ state.profile={full_name:'Amina Test',faculty:'Historical faculty',department:'Historical department',matric_number:'26/01HUI001'};
+ const { account } = await import('/js/pages/account.js');
+ await account(document.querySelector('#app'));
+ assert(document.querySelector('[name=matric_number]').placeholder==='26/01HUI001','Matric placeholder');
+ assert(document.querySelector('#faculty').value==='Historical faculty','Legacy faculty retained');
+ assert(document.querySelector('#department').value==='Historical department','Legacy department retained');
+ document.querySelector('#faculty').value='Faculty of Law';document.querySelector('#faculty').dispatchEvent(new Event('change'));
+ assert([...document.querySelector('#department').options].some(o=>o.value==='Law'),'Department options change');
+ assert(document.querySelector('#department').value==='Historical department','Changing faculty never silently clears a legacy department');
+ assert(document.documentElement.scrollWidth<=innerWidth,'Account has no horizontal overflow');
+ const {mountDeletion}=await import('/js/account-deletion.js');await mountDeletion(document.querySelector('#privacy-account'));
+ assert(document.querySelector('#privacy-account').textContent.includes('Delete My Account'),'Visible deletion entry');
+ assert(document.querySelector('#deletion-form [name=accepted]').required,'Explicit confirmation required');
+ const root=document.querySelector('#app');root.id='account-preview';const legalRoot=document.createElement('div');legalRoot.id='app';document.body.appendChild(legalRoot);
+ const legal=await import('/js/pages/legal.js');legal.privacy();assert(legalRoot.textContent.includes('Submitting a request does not delete'),'Privacy renders truthful workflow');legal.terms();assert(legalRoot.textContent.includes('16–17'),'Terms retain eligible younger students');assert(legalRoot.querySelector('a[href="/privacy"]'),'Policy links render');legalRoot.remove();root.id='app';
+ document.querySelector('#result').textContent='PASS: 18 offline browser assertions';
+} catch(e) { document.querySelector('#result').textContent='FAIL: '+e.message; }
+</script></body></html>
