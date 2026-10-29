@@ -12,7 +12,7 @@ This record supersedes historical completion claims in earlier audit notes. Prod
 
 ## Feature and dependency matrix
 
-Statuses describe code and verification, not a production deployment claim. Browser screenshots and synthetic UI checks do not establish live permissions. Update the evidence section after CI finishes.
+Statuses describe code and verification, not a production deployment claim. Browser screenshots and synthetic UI checks do not establish live permissions. The final verification record below supersedes earlier pending-CI notes.
 
 | Feature | Production / development finding | Integration files and work | DB dependency / security | Tests / completion |
 |---|---|---|---|---|
@@ -76,3 +76,73 @@ Before release: recheck main has not moved, SHA/tests/preview/feature flags/rout
 ## Evidence and limitations
 
 Local Node regressions and JS syntax checks execute; browser binding still fails EPERM, proxy port 8080 is unreachable, Docker is denied, and psql/Supabase CLI are unavailable here. Therefore full browser/PostgreSQL/GoTrue tests run in GitHub Actions on the integration commit; their results must be recorded rather than inferred. Production connector queries were read-only; no real user account was used for destructive tests. Rendered fixture screenshots are synthetic, not approved design-reference comparisons. Physical Android/OS installation, real mail delivery, production-sized data rehearsal, real Storage API backup/restore and complete authenticated preview acceptance have not been established. Those are blockers where relevant, not successful tests.
+
+## Final verification record — 29 October 2026
+
+**Tested code commit:** `9ec1ac5d92f1ef6cc2f1ccc4aec25385933223ab`.
+[GitHub Actions run 40849527939](https://github.com/nosifishola-max/HikmahHub/actions/runs/40849527939): **all five jobs passed** (regression, database, authenticated, dependencies, performance). Earlier failed runs discovered and corrected the deletion label, deal CASE parsing, fixture fidelity, and browser-runner lifecycle issues; they are not counted as successful runs.
+
+- **17 Node cases passed**, plus syntax checks and 18 actual-module browser assertions at each of 320, 360, 412, 768 and 1100px.
+- **65 rendered page/viewport screenshots**, plus five account screenshots, PWA evidence and one connected-account screenshot. Artifact [android-ui-evidence](https://github.com/nosifishola-max/HikmahHub/actions/runs/40849527939/artifacts/12887070848) contains rendered fixture screenshots and performance.json; [connected-auth-ui-evidence](https://github.com/nosifishola-max/HikmahHub/actions/runs/40849527939/artifacts/12886621231) contains the real local Auth/browser account evidence. Artifacts expire; retain approved evidence in the release record before expiry.
+- Synthetic UI checks now require the promotion to actually render (the fixture previously omitted a query method and silently showed no promo). They verify complete artwork, CTA URL, ordered home sections, two filters, state-preserving chips, Back/Forward, counts, deduplication, pagination, Request It, error/empty states, responsive cards, event labels, contact clearance above bottom navigation, immediate WhatsApp opening and one tracking call per tap. These tests cannot prove live marketplace data or backend permissions.
+- **Actual mobile browser → pinned Supabase SDK → disposable GoTrue/PostgREST → PostgreSQL** passed signup, password login after logout, profile save, first-name event post/like/edit/remove, recent-password deletion request and logout. The test uses only localhost services, synthetic accounts and a disposable JWT signing secret. It does not contact a hosted project or use a service-role frontend key.
+- Actual GoTrue-issued-token HTTP tests passed missing-profile repair, demand requests, product/event likes, private comment identifier denial, cross-user deletion denial, forged state rejection, expired AMR/session denial, idempotent requests/retries, vendor/listing/unresolved-report inventory, admin-only versioned review and signed-out request denial. Deletion requests preserve Auth users and Storage metadata rather than claiming erasure.
+- Disposable SQL passed the full four-draft sequence, baseline schema contract, constraints/triggers/RPCs/RLS/role scenarios, actual client-role TRUNCATE denial, legacy approved vendor access, first-name/own edit/removal/rate/conflict checks, private Storage metadata ownership, deal snapshot/hide/duplicate/restore and public preview continuity. The pg_dump/pg_restore rehearsal passed. This is synthetic backup evidence, **not a production database or bucket backup**.
+- New `tests/public-indexes.sql` captures 41 secondary indexes already present in production; PK/unique constraints supply the other 31. `tests/schema-snapshot-contract.sql` verifies all 218 baseline column/type/nullability definitions (203 base-table, 15 view), 72 indexes and valid indexes before feature drafts. Read-only catalog inspection found 110 validated constraints and 22 public triggers; constraint/trigger names were present in the original snapshot. Existing product status/date/vendor/category/trigram, event status/date and deal status/expiry indexes were preserved. Production-size timing/lock tests remain outstanding.
+- Dependency install, patched Nodemailer compatibility and npm security audit passed.
+- **Real Chromium service workers:** exact production v4 → new worker, Later/explicit acceptance/reload, old hh-cache cleanup, unrelated-cache preservation, changed static module delivery, excluded API responses, synthetic device-session persistence, actual test-server connection outage/offline page, and reconnection passed. Physical OS installation and a real Auth-token refresh across an installed-app update remain unverified.
+
+Sample screenshots from earlier successful runs were downloaded from this repository's own CI artifacts and visually inspected for home, marketplace, product, event, vendor and account layouts. This was evidence retrieval, not importing an external implementation ZIP. The review led to removal of the floating profile Save control, larger secondary targets and card-image fallback. Final rendered assertions/screenshots passed after those fixes. No physical Android claim or unavailable design-reference comparison is made.
+
+### Actual network/CPU measurements
+
+Run 40849527939 measured the archived production/main commit `911daab4` against the release candidate, on separate cold anonymous contexts at 360px, **400ms RTT, 50,000 B/s download, 25,000 B/s upload, 4× CPU**, service workers blocked. Live read-only public data/images were used; promotional content and daily feed ordering can vary. This is a measured single before/after sample, not a statistically controlled field benchmark.
+
+| Metric | Before | After |
+|---|---:|---:|
+| Initial transferred bytes | 652,249 | 345,231 |
+| Requests | 52 | 39 |
+| Failed requests | 0 | 0 |
+| First contentful paint | 3,932ms | 3,688ms |
+| Largest contentful paint | 5,312ms | 5,556ms |
+| DOMContentLoaded | 4,141.1ms | 3,678.1ms |
+| Static transfer | 135,972 B | 143,158 B |
+| SDK transfer | 30,303 B | 29,994 B |
+| API transfer | 5,994 B | 5,164 B |
+| Storage/image transfer | 479,980 B | 166,915 B |
+
+Transfer decreased by approximately 47.1%; requests decreased 25%. **LCP worsened by 244ms** in this sample. The static portion also grew. Do not describe this as an across-the-board speed improvement or imply a physical low-end-device benchmark. Recheck LCP with repeated comparable samples and real device/network acceptance before deployment approval.
+
+### Preview evidence
+
+Code preview: [hikmahhub-l52tg9v7m-nosifishola-maxs-projects.vercel.app](https://hikmahhub-l52tg9v7m-nosifishola-maxs-projects.vercel.app), Vercel deployment `dpl_9Py5uHmBrWyoiNz4cuMo8yU4hMNA`, READY at tested code SHA `9ec1ac5d...`, target preview. Earlier integration preview HTTP checks returned 200 for root, release switches, worker, manifest, privacy SPA route and About; the switches were false. The latest preview has not received full connected authenticated/device acceptance. READY is build evidence only. Previews use the existing project's public configuration; **do not perform mutation tests against production through them**.
+
+### Final completion matrix
+
+These final statuses supersede earlier “pending CI” labels. A verified test scope is named for each item.
+
+| Requirement | Status | Verified scope / remaining condition |
+|---|---|---|
+| Approved home, chips/two filters, state/history, counts/pager/cards | Implemented but awaiting production deployment | Actual rendered modules/fixtures, URL/history/pagination/error tests at all five required widths |
+| Product facts, gallery rendering, availability, Visit Store, mobile contact/share wiring | Implemented but awaiting production deployment | Screenshots, contact clearance and one immediate tracked WhatsApp action; actual external WhatsApp/share acceptance remains |
+| Responsive vendor listing cards and named delete confirmation | Implemented but awaiting production deployment | Rendered cards and existing handlers preserved; full connected create/edit/image/delete journey remains unverified |
+| Account/mobile privacy, academic choices, navigation/auth presentation | Implemented but awaiting production deployment | Legacy-value fixtures, actual signup/login/profile/logout; recovery-mail delivery remains unverified |
+| Storefront/events/deals progressive loading; event metadata/promotions | Implemented but awaiting production deployment | Rendered screen/empty/error checks; storefront queries scoped to vendor, stable pagers and availability preserved |
+| Profile repair, matric/academic server validation, legacy vendor access | Implemented but awaiting database migration | Real GoTrue/PostgREST plus SQL contracts; gate remains false |
+| Event likes/discussion/reporting, own edit/removal and spam/conflict controls | Implemented but awaiting database migration | Real browser post/like/edit/remove; SQL/HTTP private/cross-user/admin permissions; gate remains false |
+| Moderation snapshots/templates/reasons/audit and deal/comment/event actions | Implemented but awaiting database migration | Real RPC/RLS/admin denial and duplicate/version/action tests; complete connected administrative UI acceptance remains unverified |
+| Secure deletion request, status/withdrawal, admin review/inventory | Implemented but awaiting database migration | Recent Auth/session/ownership/retry/inventory tests and real browser request; gate remains false |
+| Immediate permanent account erasure / actual file cleanup / post-erasure universal token denial | Not completed | Deliberately not activated without verified backups, approved retention and a separately reviewed resumable executor; request-and-review is the safe shipped alternative |
+| Automatic retention schedules and final legal/minor decisions | Blocked | Retention proposal and notices prepared; no schedules active; operator/legal approvals required |
+| Customer vendor reviews/ratings | Deferred with justification | Issue #3 explicitly defers them; incomplete later experiment remains disabled and excluded from migrations |
+| Confirmed client privilege issue and public-preview compatibility | Implemented but awaiting database migration | Actual disposable TRUNCATE denial, preview/RLS tests; production grants unchanged |
+| Browser PWA lifecycle/cache/offline behavior | Completed and verified | Exact production-v4 transition in real Chromium/test server; physical installed Android and real Auth refresh continuity remain unverified |
+| Database baseline/migration/backup rehearsal | Completed and verified | Isolated schema/index/constraint/role checks and synthetic database restore only |
+| Real Storage HTTP/object bytes cleanup and backup/restore | Blocked | Metadata RLS tested; no authorised full Storage service/backup fixture was established in this environment |
+| Complete connected vendor/admin/upload/SMTP/recovery/device acceptance | Not completed | Selected real authenticated flows passed; no fully-tested claim |
+| Production database AND Storage backup/recovery | Blocked | Must verify restricted copies, manifests, integrity and restore before destructive operations or migration approval |
+| Production merge/migrations/release/monitoring | Blocked | Separate owner approval plus all applicable release gates required; no production action performed |
+
+**Recommendation: NO-GO for full v1.1 production release.** The implementation and isolated evidence are reviewable, but the remaining gates above prevent a fully tested/production-complete claim. Release A can be considered independently only after its preview/device/legal acceptance and explicit deployment approval, with all backend switches false. Do not enable Release C merely because code exists or the database rehearsal passed.
+
+The workspace execution environment became unavailable during final evidence collection. Final SQL test additions and documentation were committed through the GitHub API with branch-head leases, preserving main and the original development history. Review the GitHub branch as the authoritative candidate; do not push the old local snapshot. The final documentation commit changes no runtime code relative to the tested code SHA above.
