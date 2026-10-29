@@ -1,0 +1,44 @@
+{
+  "tested_commit": "9ec1ac5d92f1ef6cc2f1ccc4aec25385933223ab",
+  "run_url": "https://github.com/nosifishola-max/HikmahHub/actions/runs/40849527939",
+  "baseline_commit": "911daab43801849b1ed1c8e41706f5364910a2dc",
+  "caveat": "Single cold anonymous sample using live read-only public data; not a field benchmark. LCP increased; do not claim universal speed improvement.",
+  "measurements": [
+    {
+      "version": "before",
+      "profile": "360px, 400ms RTT, 50kB/s download, 4x CPU, cold, SW blocked",
+      "fcp": 3932,
+      "lcp": 5312,
+      "domContentLoaded": 4141.0999999999985,
+      "rendered": true,
+      "bytes": 652249,
+      "requests": 52,
+      "failures": 0,
+      "transfers": {
+        "static": 135972,
+        "sdk": 30303,
+        "api": 5994,
+        "storage": 479980
+      },
+      "observedMs": 18965
+    },
+    {
+      "version": "after",
+      "profile": "360px, 400ms RTT, 50kB/s download, 4x CPU, cold, SW blocked",
+      "fcp": 3688,
+      "lcp": 5556,
+      "domContentLoaded": 3678.0999999999985,
+      "rendered": true,
+      "bytes": 345231,
+      "requests": 39,
+      "failures": 0,
+      "transfers": {
+        "static": 143158,
+        "sdk": 29994,
+        "api": 5164,
+        "storage": 166915
+      },
+      "observedMs": 12602
+    }
+  ]
+}

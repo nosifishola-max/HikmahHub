@@ -78,12 +78,12 @@ export async function saveImage(vendorId, productId, sortOrder, prep, version, a
 // Delete files only when no other row references them
 export async function cleanupFiles(paths = [], originals = []) {
   for (const p of [...new Set(paths.filter(Boolean))]) {
-    const { count } = await sb.from('product_images').select('id', { count: 'exact', head: true }).eq('path', p);
-    if (!count) await sb.storage.from('product-images').remove([p, thumbPath(p)]);
+    const { count, error } = await sb.from('product_images').select('id', { count: 'exact', head: true }).eq('path', p);
+    if (!error && count === 0) await sb.storage.from('product-images').remove([p, thumbPath(p)]);
   }
   for (const o of [...new Set(originals.filter(Boolean))]) {
-    const { count } = await sb.from('product_images').select('id', { count: 'exact', head: true }).eq('original_path', o);
-    if (!count) await sb.storage.from('product-originals').remove([o]);
+    const { count, error } = await sb.from('product_images').select('id', { count: 'exact', head: true }).eq('original_path', o);
+    if (!error && count === 0) await sb.storage.from('product-originals').remove([o]);
   }
 }
 
@@ -104,3 +104,4 @@ export async function regenerate(row, vendorId, version) {
   if (old !== p.path) await cleanupFiles([old]);
   return 'regenerated';
 }
+

@@ -1,4 +1,6 @@
 import { sb } from '../supabase.js';
+import { academics, optionsWithLegacy } from '../academics.js';
+import { normalizeMatric } from '../vendor-identity.js';
 import { state, loadSession, signOut, isAdmin } from '../auth.js';
 import { $, esc, toast, formData, setMeta } from '../util.js';
 import { passwordField, bindPasswordToggles, cooldown, setMsg, openDialog } from '../ui.js';
@@ -40,7 +42,7 @@ export async function login(app, _, qs) {
       <button class="btn" id="go" style="width:100%;margin-top:14px">${btn}</button><p id="msg" class="small" role="alert" aria-live="polite"></p></form>
       <div class="auth-links">${mode === 'signin' ? '<p><a href="#" id="fg">Forgot password?</a></p>' : ''}
       <p>${mode === 'signup' ? 'Already have an account? <a href="#" id="sw">Sign in</a>' : mode === 'forgot' ? '<a href="#" id="sw">Back to sign in</a>' : 'New to HikmahHub? <a href="#" id="sw2">Create an account</a>'}</p></div>
-      <p class="auth-note">${mode === 'signup' ? 'Every student can create an account. Vendors apply for store access after joining.' : mode === 'forgot' ? 'Check your inbox and Spam folder for the reset email.' : 'Your account information stays private and secure.'}</p></div></div>`;
+      <p class="auth-note">${mode === 'signup' ? 'Every student can create an account. Vendors apply for store access after joining.' : mode === 'forgot' ? 'Check your inbox and Spam folder for the reset email.' : 'Your account information stays private and secure.'}</p><p class="auth-legal small">By creating an account, you agree to our <a href="/terms" data-link>Terms &amp; Conditions</a> and acknowledge our <a href="/privacy" data-link>Privacy Policy</a>.</p></div></div>`;
     bindPasswordToggles(app);
     const to = m => e => { e.preventDefault(); mode = m; draw(); };
     $('#sw') && ($('#sw').onclick = to('signin')); $('#sw2') && ($('#sw2').onclick = to('signup')); $('#fg') && ($('#fg').onclick = to('forgot'));
@@ -52,6 +54,7 @@ export async function login(app, _, qs) {
         if (mode === 'forgot') {
           const { error } = await sb.auth.resetPasswordForEmail(d.email.trim(), { redirectTo: `${location.origin}/reset-password` });
           if (error && /rate limit|after \d+ seconds|too many/i.test(error.message)) { setMsg('#msg', authErrorMessage(error)); cooldown(b, 60); return; }
+          if (error) { setMsg('#msg', 'Could not request a reset email. Check your connection and try again.'); b.disabled = false; return; }
           // same message whether or not the email exists (no account enumeration)
           setMsg('#msg', "If that email has a HikmahHub account, we've sent a reset link. Check your inbox and Spam folder. The link expires after a while.", 'ok'); cooldown(b, 60); return;
         }
@@ -100,12 +103,19 @@ export async function account(app) {
   if (!state.user) return go('/login');
   setMeta('Account', 'Manage your HikmahHub profile');
   const p = state.profile || {};
-  app.innerHTML = `<div class="wrap pad account-page"><header class="profile-header"><span class="avatar" aria-hidden="true">${esc((p.full_name || 'S').slice(0,1).toUpperCase())}</span><div><h1>${esc(p.full_name || 'Your account')}</h1><p class="muted">${esc(state.user.email)} · ${esc(p.role || 'student')}</p></div></header>
+  app.innerHTML = `<div class="wrap pad account-page"><header class="profile-header"><span class="avatar" aria-hidden="true">${esc((p.full_name || 'S').slice(0,1).toUpperCase())}</span><div><h1>${esc(p.full_name || 'Your account')}</h1><p>${esc(state.user.email)}</p><span class="badge">${esc(p.role || 'student')}</span></div></header>
   <div class="row" style="margin-bottom:12px"><a class="btn ghost sm" href="/saved" data-link>Liked products</a><a class="btn ghost sm" href="/request" data-link>My requests</a><a class="btn ghost sm" href="/vendor" data-link>${state.vendor ? 'Vendor dashboard' : 'Become a vendor'}</a>${isAdmin() ? '<a class="btn gold sm" href="/admin" data-link>Admin</a>' : ''}</div>
   <form id="f" class="panel profile-form"><h2>Personal details</h2><label>Full name<input name="full_name" value="${esc(p.full_name)}" required></label><label>Phone<input name="phone" value="${esc(p.phone)}" inputmode="tel"></label>
-  <h2>University details</h2><label>Matric number<input name="matric_number" value="${esc(p.matric_number)}"></label><label>Faculty<input name="faculty" value="${esc(p.faculty)}"></label>
-  <label>Department<input name="department" value="${esc(p.department)}"></label><label>Level<select name="level"><option value="">Select</option>${['100', '200', '300', '400', '500', '600'].map(l => `<option ${p.level === l ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-  <button class="btn" style="margin-top:14px">Save profile</button></form><button id="out" class="btn ghost">Sign out</button></div>`;
-  $('#f').onsubmit = async e => { e.preventDefault(); const d = formData(e.target); if (d.phone) { const ph = normalizePhone(d.phone); if (!ph.ok) return toast(ph.error); d.phone = ph.value; } else d.phone = null; const { error } = await sb.from('profiles').update(d).eq('id', state.user.id); if (error) return toast(friendlyError(error)); await loadSession(); toast('Profile saved'); };
+  <h2>University details</h2><p class="small muted">Matric numbers stay private. Existing details are kept until you choose to change them.</p><label>Matric number<input placeholder="26/01HUI001" name="matric_number" value="${esc(p.matric_number)}"></label><label>Faculty<select name="faculty" id="faculty"></select></label>
+  <label>Department<select name="department" id="department"></select></label><label>Level<select name="level"><option value="">Select</option>${['100', '200', '300', '400', '500', '600'].map(l => `<option ${p.level === l ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+  <button class="btn" style="margin-top:14px">Save profile</button></form><section class="panel account-privacy" id="privacy-account"></section><button id="out" class="btn ghost">Sign out</button></div>`;
+  const selectOptions = (values, current) => '<option value="">Select</option>' + optionsWithLegacy(values, current).map(v => `<option value="${esc(v)}" ${v === current ? 'selected' : ''}>${esc(v)}${values.includes(v) ? '' : ' (existing value)'}</option>`).join('');
+  $('#faculty').innerHTML = selectOptions(Object.keys(academics), p.faculty);
+  $('#department').innerHTML = selectOptions(academics[p.faculty] || [], p.department);
+  $('#faculty').onchange = () => { const previous = $('#department').value; $('#department').innerHTML = selectOptions(academics[$('#faculty').value] || [], previous); };
+  $('#f').onsubmit = async e => { e.preventDefault(); const d = formData(e.target); d.matric_number = normalizeMatric(d.matric_number) || null; if (d.phone) { const ph = normalizePhone(d.phone); if (!ph.ok) return toast(ph.error); d.phone = ph.value; } else d.phone = null; const { error } = await sb.from('profiles').update(d).eq('id', state.user.id); if (error) return toast('Could not save your profile. Check the selected faculty and department, or contact support to correct a legacy value.'); await loadSession(); toast('Profile saved'); };
+  import('../account-deletion.js').then(({mountDeletion})=>mountDeletion($('#privacy-account')));
   $('#out').onclick = async () => { await signOut(); refreshNav(); go('/'); };
 }
+
+

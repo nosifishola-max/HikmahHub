@@ -1,0 +1,43 @@
+{
+  "run": 40245822804,
+  "commit": "b5add38f75d841e1e4418821b134512b08b3b176",
+  "method": "Cold anonymous homepage, real public reads; 400ms latency, 50000 B/s download, 25000 B/s upload, 4x CPU, 360x800, service worker blocked. Observe through networkidle plus 3 seconds. Single paired sample; live content and CI variability apply.",
+  "measurements": [
+    {
+      "version": "before",
+      "profile": "360px, 400ms RTT, 50kB/s download, 4x CPU, cold, SW blocked",
+      "fcp": 3268,
+      "lcp": 5908,
+      "domContentLoaded": 4656.9000000000015,
+      "rendered": true,
+      "bytes": 608434,
+      "requests": 53,
+      "failures": 0,
+      "transfers": {
+        "static": 133259,
+        "sdk": 29994,
+        "api": 5876,
+        "storage": 439305
+      },
+      "observedMs": 18488
+    },
+    {
+      "version": "after",
+      "profile": "360px, 400ms RTT, 50kB/s download, 4x CPU, cold, SW blocked",
+      "fcp": 3308,
+      "lcp": 5128,
+      "domContentLoaded": 3970.5,
+      "rendered": true,
+      "bytes": 319310,
+      "requests": 38,
+      "failures": 0,
+      "transfers": {
+        "static": 121783,
+        "sdk": 29994,
+        "api": 5121,
+        "storage": 162412
+      },
+      "observedMs": 11963
+    }
+  ]
+}

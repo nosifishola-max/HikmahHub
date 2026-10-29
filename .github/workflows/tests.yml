@@ -1,0 +1,111 @@
+name: Regression tests
+on:
+  pull_request:
+  push:
+    branches: [codex/hikmahhub-v1-1, codex/hikmahhub-v1-1-integration]
+permissions:
+  contents: read
+jobs:
+  regression:
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: find js api -name '*.js' -exec node --check '{}' \;
+      - run: npm install --prefix /tmp/hikmah-tools playwright@1.56.1 --no-audit --no-fund
+      - run: node tests/browser-smoke.cjs
+        env:
+          CHROMIUM: google-chrome
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: localtest
+          POSTGRES_DB: hikmah_test
+        ports: [5432:5432]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: localtest
+      PGDATABASE: hikmah_test
+    steps:
+      - uses: actions/checkout@v4
+      - run: psql -v ON_ERROR_STOP=1 -f tests/local-bootstrap.sql -f tests/public-schema.sql -f tests/public-grants.sql -f tests/public-indexes.sql -f tests/schema-snapshot-contract.sql -f tests/storage-policies.sql -f db/v1_1.sql -f db/android-fixes.sql -f db/privacy-requests.sql -f db/security-hardening.sql -f tests/release-security.sql -f tests/database-contract.sql -f tests/database-roles.sql -f tests/android-database.sql
+      - name: Rehearse disposable backup restore
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/backup-fixture.sql
+          pg_dump --format=custom --no-owner --file=/tmp/hikmah-local.dump
+          createdb hikmah_restore
+          pg_restore --exit-on-error --no-owner --dbname=hikmah_restore /tmp/hikmah-local.dump
+          PGDATABASE=hikmah_restore psql -v ON_ERROR_STOP=1 -f tests/backup-check.sql -f tests/database-contract.sql -f tests/database-roles.sql -f tests/android-database.sql
+  performance:
+    timeout-minutes: 8
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --prefix /tmp/hikmah-tools playwright@1.56.1 --no-audit --no-fund
+      - run: node tests/performance.cjs
+      - if: ${{ !cancelled() }}
+        run: node tests/release-browser.cjs
+      - if: ${{ !cancelled() }}
+        run: node tests/pwa-browser.cjs
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-ui-evidence
+          path: test-results/
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-fund
+      - run: node tests/mail-compat.cjs
+      - run: npm audit --omit=dev
+
+  authenticated:
+    timeout-minutes: 6
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: localtest
+          POSTGRES_DB: hikmah_test
+        ports: [5432:5432]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: localtest
+      PGDATABASE: hikmah_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bash tests/start-auth-http.sh
+      - run: npm install --prefix /tmp/hikmah-tools playwright@1.56.1 --no-audit --no-fund
+      - run: curl --fail --retry 2 --max-time 30 https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js -o /tmp/hikmah-sdk.js
+      - run: node tests/connected-browser.cjs
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: connected-auth-ui-evidence
+          path: test-results/
+      - if: failure()
+        run: docker logs hikmah-auth; docker logs hikmah-rest || true

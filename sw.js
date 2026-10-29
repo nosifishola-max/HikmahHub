@@ -1,40 +1,39 @@
-// v4: update installed HikmahHub promptly while retaining offline navigation.
-// Only same-origin public app assets are cached; API and Supabase requests are excluded.
-const V = 'hh-v4';
-const SHELL = ['/', '/index.html', '/css/styles.css', '/manifest.webmanifest', '/assets/logo-sm.webp', '/offline.html'];
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)));
-  self.skipWaiting();
+// Static-only caching. API responses, prices, availability and student data never enter Cache Storage.
+const VERSION = 'hh-v1-1-integration-1';
+const STATIC = /\.(?:js|css|webp|png|jpg|jpeg|svg|ico|webmanifest)$/;
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(VERSION).then(cache => cache.add('/offline.html')));
+  // Wait for existing clients to close; do not mix a new worker with old modules mid-session.
 });
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('hh-') && k !== V).map(k => caches.delete(k)))));
-  self.clients.claim();
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    await Promise.all((await caches.keys()).filter(k => k.startsWith('hh-') && k !== VERSION).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
-const offline = async (req, fallback) => {
-  const cache = await caches.open(V);
-  try {
-    const res = await fetch(req, { cache: 'no-store' });
-    if (res.ok) await cache.put(fallback || req, res.clone());
-    return res;
-  } catch {
-    return (await cache.match(fallback || req)) || (await caches.match('/offline.html')) || Response.error();
-  }
-};
-self.addEventListener('fetch', e => {
-  const req = e.request;
-  const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
-  if (req.mode === 'navigate') {
-    e.respondWith(offline(req, '/index.html'));
+self.addEventListener('message', event => {
+  if (event.data?.type === 'APPLY_UPDATE') self.skipWaiting();
+});
+async function remember(cache, request, response) {
+  if (!response || !response.ok || response.type === 'opaque') return;
+  await cache.put(request, response.clone());
+  const keys = await cache.keys();
+  while (keys.length > 80) await cache.delete(keys.shift());
+}
+self.addEventListener('fetch', event => {
+  const request = event.request, url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request, { cache: 'no-store' }).catch(() => caches.match('/offline.html')));
     return;
   }
-  if (url.pathname.startsWith('/js/') || url.pathname.startsWith('/css/') || url.pathname === '/index.html') {
-    e.respondWith(offline(req));
-    return;
-  }
-  e.respondWith(caches.open(V).then(async cache => {
-    const hit = await cache.match(req);
-    if (hit) return hit;
-    return offline(req);
-  }));
+  if (!STATIC.test(url.pathname)) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(VERSION), hit = await cache.match(request);
+    // Artwork paths are stable; use cached bytes without a background redownload.
+    if (hit && url.pathname.startsWith('/assets/')) return hit;
+    // Modules/styles keep fixed names, so revalidate before reuse across app launches.
+    try { const response = await fetch(request); event.waitUntil(remember(cache, request, response)); return response; }
+    catch (error) { if (hit) return hit; throw error; }
+  })());
 });

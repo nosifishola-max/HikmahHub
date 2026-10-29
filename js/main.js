@@ -15,6 +15,8 @@ const lazy = (loader, name, needsProfile) => async (app, ...rest) => {
   return m[name](app, ...rest);
 };
 route('', P.home); route('/', P.home);
+const legal = () => import('./pages/legal.js');
+route('/privacy', lazy(legal, 'privacy')); route('/terms', lazy(legal, 'terms'));
 route('/marketplace', P.marketplace); route('/trending', P.trending); route('/deals', P.deals); route('/events', P.events);
 route('/events/:slug', P.eventPage); route('/request', P.request); route('/saved', P.saved);
 route('/shop/:store', P.shop); route('/shop/:store/:product', P.product);
@@ -27,7 +29,7 @@ initPwa();
 await loadSession({ full: false });                 // local only: first paint is not blocked by profile/vendor queries
 refreshNav(); state.ready.then(refreshNav);
 sb.auth.onAuthStateChange((ev, session) => {         // keep this callback synchronous (no awaiting Supabase calls inside)
-  if (ev === 'SIGNED_OUT') { clearAll(); stopAll(); try { Object.keys(localStorage).filter(k => k.startsWith('hh:draft:')).forEach(k => localStorage.removeItem(k)); } catch { } setTimeout(() => loadSession({ full: false }).then(refreshNav), 0); }
+  if (ev === 'SIGNED_OUT') { clearAll(); stopAll(); try { Object.keys(localStorage).filter(k => k.startsWith('hh:draft:')).forEach(k => localStorage.removeItem(k)); } catch { } setTimeout(() => loadSession({ full: false }).then(() => { refreshNav(); render(); }), 0); }
   else if (ev === 'SIGNED_IN' && session?.user?.id !== state.user?.id) setTimeout(() => { loadSession({ full: false }).then(refreshNav); state.ready.then(refreshNav); }, 0);
 });
 await render();
@@ -35,3 +37,5 @@ await render();
 const h = String(window.__authHash || '');            // returning from the confirmation email link
 if (/type=signup/.test(h) && state.user) { toast('Email confirmed. Welcome to HikmahHub!'); await state.ready; go(state.profile?.phone ? '/' : '/account'); }
 else if (/error_code=otp_expired|error=access_denied/.test(h)) toast('That confirmation link has expired. Sign in, or create the account again to get a new link.');
+
+
