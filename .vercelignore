@@ -5,3 +5,6 @@ docs
 db
 scripts
 dev-server.js
+
+test-results
+node_modules

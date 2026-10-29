@@ -14,7 +14,7 @@ const getCats = () => cached('cats:top', 600000, () => q(sb.from('categories').s
 
 const discount = p => (p.was && Number(p.was) > Number(p.price) && Number(p.price) >= 0) ? Math.round((1 - Number(p.price) / Number(p.was)) * 100) : 0;
 export const card = (p, extra = '') => { const d = discount(p); extra = typeof extra === 'string' ? extra : ''; return `<div class="card"><a class="cl" href="/shop/${esc(p.store_slug)}/${esc(p.slug)}" data-link>
-  <div class="pw"><img class="ph" loading="lazy" decoding="async" width="400" height="400" src="${img('product-images', p.image_path, true)}" alt="${esc(p.title)}"><span class="badge ${!p.availability || p.availability === 'available' ? 'ok' : 'bad'} tag">${esc((p.availability || 'available').replaceAll('_', ' '))}</span></div>
+  <div class="pw"><img class="ph" loading="lazy" decoding="async" width="400" height="400" onerror="this.onerror=null;this.src='/assets/icons/icon-192.png'" src="${img('product-images', p.image_path, true)}" alt="${esc(p.title)}"><span class="badge ${!p.availability || p.availability === 'available' ? 'ok' : 'bad'} tag">${esc((p.availability || 'available').replaceAll('_', ' '))}</span></div>
   <div class="b"><div class="t">${esc(p.title)}</div><div class="price">${money(p.price)}</div>
   ${d ? `<div class="pr2"><span class="was">${money(p.was)}</span><span class="disc">-${d}%</span></div>` : ''}
   <div class="store"><span class="sn">${esc(p.store_name)}</span>${p.is_verified ? '<span class="vf" title="Verified Student Vendor" aria-label="Verified Student Vendor">✓</span>' : ''}</div></div></a>${extra}</div>`; };

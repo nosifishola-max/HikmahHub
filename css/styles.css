@@ -13,7 +13,7 @@ img{max-width:100%;display:block}a{color:var(--green2)}h1,h2,h3{line-height:1.2;
 .tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;font-size:.72rem;text-decoration:none;color:var(--muted);min-height:56px;justify-content:center}.tabs a.on{color:var(--green);font-weight:700}.tabs svg{width:22px;height:22px}
 @media(min-width:800px){.desk{display:flex}.tabs{display:none}body{padding-bottom:0}#install{margin-left:8px}}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:0;background:var(--green);color:#fff;font:600 1rem inherit;font-family:inherit;cursor:pointer;text-decoration:none}
-.btn:hover{background:var(--green2)}.btn.gold{background:var(--gold);color:#241a00}.btn.ghost{background:#fff;color:var(--green);border:1.5px solid var(--green)}.btn.wa{background:var(--wa);color:#06361a}.btn.danger{background:var(--danger)}.btn.sm{min-height:36px;padding:0 12px;font-size:.9rem}.btn[disabled]{opacity:.5}
+.btn:hover{background:var(--green2)}.btn.gold{background:var(--gold);color:#241a00}.btn.ghost{background:#fff;color:var(--green);border:1.5px solid var(--green)}.btn.wa{background:var(--wa);color:#06361a}.btn.danger{background:var(--danger)}.btn.sm{min-height:44px;padding:0 12px;font-size:.9rem}.btn[disabled]{opacity:.5}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.grow{flex:1}
 input,select,textarea{width:100%;min-height:44px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font:inherit;background:#fff}textarea{min-height:90px}
 label{display:block;font-weight:600;font-size:.9rem;margin:12px 0 4px}
@@ -146,7 +146,7 @@ label{margin:9px 0 3px;font-size:.84rem}
 .g-thumbs{display:flex;gap:6px;overflow-x:auto;margin-top:6px;padding:2px;scrollbar-width:none}.g-thumbs::-webkit-scrollbar{display:none}
 .g-th{flex:none;width:56px;height:56px;padding:0;border:2px solid transparent;border-radius:9px;background:#fff;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s}
 .g-th img{width:100%;height:100%;object-fit:cover;display:block}.g-th[aria-selected=true]{border-color:var(--green2);box-shadow:0 0 0 1px var(--green2);transform:scale(1.04)}
-.like{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 13px;border:1.5px solid var(--line);border-radius:99px;background:#fff;color:var(--ink);font:600 .9rem inherit;font-family:inherit;cursor:pointer;flex:none}
+.like{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 13px;border:1.5px solid var(--line);border-radius:99px;background:#fff;color:var(--ink);font:600 .9rem inherit;font-family:inherit;cursor:pointer;flex:none}
 .like svg{transition:transform .2s}.like[aria-pressed=true]{color:#c8284f;border-color:#f1b5c4;background:#fff2f5}.like.pop svg{animation:likepop .4s ease}
 @keyframes likepop{0%{transform:scale(1)}40%{transform:scale(1.4)}100%{transform:scale(1)}}
 .vw{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.95);display:flex;flex-direction:column;overscroll-behavior:contain;color:#fff}
@@ -192,7 +192,7 @@ input,select,textarea{font-size:1rem;max-width:100%}
 /* Keep compact screens usable with long text and native controls. */
 @media(max-width:360px){.wrap{padding-left:10px;padding-right:10px}.contact-bar .grow{min-width:0;font-size:.85rem}.market-filters{gap:4px}.tabs a{font-size:.65rem}}
 button,a.btn,select,summary{min-height:44px}
-.account-page{max-width:720px}.profile-header{display:flex;gap:16px;align-items:center;padding:20px 0}.profile-header h1{font-size:1.5rem;margin:0}.profile-header p{overflow-wrap:anywhere;margin:4px 0}.profile-header>div{min-width:0}.avatar{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:50%;background:var(--green);color:white;font-size:1.4rem}.profile-form{display:grid;gap:12px}.profile-form h2{margin:12px 0 0;font-size:1.15rem}.profile-form label{margin:0}.profile-form input,.profile-form select{width:100%;box-sizing:border-box}.profile-form button{position:sticky;bottom:calc(60px + env(safe-area-inset-bottom))}.pc-slide img{aspect-ratio:auto;max-height:none;width:100%;height:auto}.pc-slide .txt{padding:10px 16px 18px;gap:4px}.pc-slide h2:empty,.pc-slide p:empty{display:none}.pc-track{align-items:flex-start}.pc-slide{min-height:0}.pc-dots{position:static;background:var(--green)}
+.account-page{max-width:720px}.profile-header{display:flex;gap:16px;align-items:center;padding:20px 0}.profile-header h1{font-size:1.5rem;margin:0}.profile-header p{overflow-wrap:anywhere;margin:4px 0}.profile-header>div{min-width:0}.avatar{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:50%;background:var(--green);color:white;font-size:1.4rem}.profile-form{display:grid;gap:12px}.profile-form h2{margin:12px 0 0;font-size:1.15rem}.profile-form label{margin:0}.profile-form input,.profile-form select{width:100%;box-sizing:border-box}.profile-form button{position:static}.pc-slide img{aspect-ratio:auto;max-height:none;width:100%;height:auto}.pc-slide .txt{padding:10px 16px 18px;gap:4px}.pc-slide h2:empty,.pc-slide p:empty{display:none}.pc-track{align-items:flex-start}.pc-slide{min-height:0}.pc-dots{position:static;background:var(--green)}
 @media(min-width:800px){.profile-form button{bottom:12px}}
 .pc-track{overflow-y:hidden}
 
